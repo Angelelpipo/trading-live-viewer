@@ -1,0 +1,2031 @@
+//@version=6
+indicator("ELPIPO GOD AMD LADDER MASTER v21.0 — SCOUT FREEZE + OFFICIAL CONFIRMATION LAB", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=500, max_bars_back=5000, dynamic_requests=false)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ELPIPO v21 CORE RULES
+// 1) Accumulation + Manipulation create the directional context.
+// 2) Distribution validates timing and entry permission.
+// 3) LIVE PROJECTION may move and is hidden by default.
+// 4) SCOUT freezes Entry, TP and SL on a confirmed candle.
+// 5) OFFICIAL can only promote the exact frozen Scout levels.
+// 6) Scout and Official outcomes are measured separately.
+// 7) Invalidation cancels the idea. It never auto-reverses.
+// 8) Authority is rule match, not guaranteed win probability.
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 0) VISUAL COCKPIT
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gUI = "0. Visual Cockpit"
+showMasterWindow = input.bool(true, "Show GOD Master Window", group=gUI)
+masterWindowPosInput = input.string("Top Left", "Master Window Position", options=["Top Left","Top Center","Top Right","Middle Left","Middle Center","Middle Right","Bottom Left","Bottom Center","Bottom Right"], group=gUI)
+masterWindowSizeInput = input.string("Medium", "Master Window Text Size", options=["Tiny","Small","Medium","Large"], group=gUI)
+chartTextSizeInput = input.string("Small", "Chart Text Size", options=["Tiny","Small","Medium","Large"], group=gUI)
+showSessionBoxes = input.bool(true, "Show AMD Session Boxes", group=gUI)
+showSessionNames = input.bool(true, "Show AMD Session Names", group=gUI)
+showQuadrants = input.bool(true, "Show Accumulation / Manipulation Quadrants", group=gUI)
+showCenterLines = input.bool(true, "Show Session Center Lines", group=gUI)
+showYellowCandles = input.bool(true, "Show Dominant Yellow Candles", group=gUI)
+showLadder = input.bool(true, "Show Distribution Ladder +3 To -3", group=gUI)
+showLadderPreview = input.bool(true, "Show Ladder Preview During Manipulation", group=gUI)
+showLevelLabels = input.bool(true, "Show Ladder Level Labels", group=gUI)
+showTradeMap = input.bool(true, "Show Entry / TP / SL Map", group=gUI)
+showTradeMapLabels = input.bool(true, "Show Entry / TP / SL Price Tags", group=gUI)
+showLiveProjection = input.bool(false, "Show Moving LIVE PROJECTION (Research Only)", group=gUI)
+showScoutPlan = input.bool(true, "Show Frozen SCOUT Plan", group=gUI)
+showPipDimensions = input.bool(true, "Show Architectural Pip Dimensions", group=gUI)
+showPatternMarkers = input.bool(false, "Show S+ Pattern Markers", group=gUI)
+gridRightBars = input.int(12, "Grid Right Context Bars", minval=4, maxval=40, group=gUI)
+previewBars = input.int(40, "Preview Length Bars", minval=5, maxval=200, group=gUI)
+inactiveLineWidth = input.int(1, "Inactive Grid Width", minval=1, maxval=3, group=gUI)
+activeLineWidth = input.int(3, "Active Plan Width", minval=2, maxval=5, group=gUI)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 1) AMD SESSIONS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gSess = "1. AMD Sessions"
+tz = input.string("America/New_York", "Timezone", group=gSess)
+accumSession = input.session("1900-0100", "Accumulation Session", group=gSess)
+manipSession = input.session("0100-0700", "Manipulation Session", group=gSess)
+manipSecondHalfSession = input.session("0400-0700", "Manipulation Second Half", group=gSess)
+distSession = input.session("0700-1300", "Distribution Session", group=gSess)
+onlyTradeDistribution = input.bool(true, "Hard Gate: Plans Only In Distribution", group=gSess)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 2) PROFILE + FINITE EXECUTION CHOICES
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gProfile = "2. Profile + Finite Execution Choices"
+elpipoProfile = input.string("ELPIPO STANDARD", "ELPIPO Profile", options=["PROFIT HUNTER","ELPIPO STANDARD","PRECISION MODE","CUSTOM RESEARCH"], group=gProfile)
+entryModel = input.string("Mid-Body 50%", "Entry Model", options=["Mid-Body 50%","Ladder Boundary","Reclaim Boundary"], group=gProfile)
+tpStepChoice = input.string("2 Steps", "Take Profit Distance", options=["1 Step","2 Steps","3 Steps"], group=gProfile)
+slStepChoice = input.string("4 Steps", "Stop Loss Distance", options=["1 Step","2 Steps","3 Steps","4 Steps"], group=gProfile)
+sameBarPolicy = input.string("Ambiguous", "TP + SL Same-Bar Policy", options=["Ambiguous","Conservative Loss"], group=gProfile)
+requireNextBarEntry = input.bool(true, "Entry Activates Only After Freeze / Arm Candle", group=gProfile)
+requireAcceptance = input.bool(true, "Official: Touch Activates Idea; Acceptance Activates Trade", group=gProfile)
+requireCorrectCenterSide = input.bool(true, "Require Correct Side Of Distribution Center", group=gProfile)
+onePlanPerDistribution = input.bool(true, "One Official Plan Per Distribution", group=gProfile)
+blockLatePlans = input.bool(true, "Block New Official Plans When Late", group=gProfile)
+blockPaidPlans = input.bool(true, "Block New Official Plans When Paid", group=gProfile)
+cancelOnContextInvalidation = input.bool(true, "Cancel Pending Official Plan On Context Invalidation", group=gProfile)
+useBrechaGate = input.bool(true, "Brecha Must Authorize Official Plan", group=gProfile)
+useConsensusVeto = input.bool(true, "Consensus May Confirm / Veto Official Plan", group=gProfile)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 3) SCOUT FREEZE LAB
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gScout = "3. Scout Freeze + Confirmation Lab"
+useScoutFreeze = input.bool(true, "Use Frozen Scout Plan", group=gScout)
+trackScoutResults = input.bool(true, "Track Scout Entry → TP / SL", group=gScout)
+oneScoutPerDistribution = input.bool(true, "One Scout Per Distribution", group=gScout)
+scoutEntryStartsNextBar = input.bool(true, "Scout Entry Activates On Next Bar", group=gScout)
+scoutRequireIntent = input.bool(true, "Scout Requires Directional Intent", group=gScout)
+scoutRequireStrongCandle = input.bool(true, "Scout Requires Directional Candle", group=gScout)
+scoutRequireRoom = input.bool(true, "Scout Requires Remaining TP Room", group=gScout)
+scoutCancelOnInvalidation = input.bool(true, "Cancel Pending Scout On Context Invalidation", group=gScout)
+promoteSameScoutOnly = input.bool(true, "Official Must Promote Same Frozen Scout", group=gScout)
+showScoutMarkers = input.bool(true, "Show Scout Freeze / Result Markers", group=gScout)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 4) CONTEXT ENGINES
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gContext = "4. AMD Context Engines"
+useDualYellow = input.bool(true, "Use Dual Yellow Direction Authority", group=gContext)
+useComboAuthority = input.bool(true, "Use Accumulation + Manipulation Combo", group=gContext)
+usePsychology = input.bool(true, "Use Psychological Context Adjustments", group=gContext)
+lockDirectionAtDistribution = input.bool(true, "Lock Context At Distribution Start", group=gContext)
+useHTFContext = input.bool(true, "Calculate Higher-Timeframe Context", group=gContext)
+consensusHTF = input.timeframe("60", "Higher Timeframe", group=gContext)
+usePatternEngine = input.bool(true, "Calculate S+ Candle Patterns", group=gContext)
+useSupertrend = input.bool(true, "Calculate Integrated Supertrend", group=gContext)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 5) CALENDAR
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gCal = "5. Scout + Official Performance Calendar"
+showCalendar = input.bool(true, "Show Scout + Official Calendar", group=gCal)
+calendarPositionInput = input.string("Bottom Right", "Calendar Position", options=["Top Left","Top Center","Top Right","Middle Left","Middle Center","Middle Right","Bottom Left","Bottom Center","Bottom Right"], group=gCal)
+calendarSizeInput = input.string("Small", "Calendar Text Size", options=["Tiny","Small","Medium","Large"], group=gCal)
+calendarMonthMode = input.string("Latest Chart Month", "Calendar Month Source", options=["Latest Chart Month","Manual Month"], group=gCal)
+calendarManualYear = input.int(2026, "Manual Year", minval=2000, maxval=2100, group=gCal)
+calendarManualMonth = input.int(7, "Manual Month", minval=1, maxval=12, group=gCal)
+calendarShowSignalTime = input.bool(true, "Show First Scout Time In Day Cell", group=gCal)
+calendarShowYearSummary = input.bool(true, "Show Year Summary", group=gCal)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 19) BRECHA — 50 CHECKBOX RECRUITS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gBA = "19A. BRECHA — A · MANIPULATION TRIGGER"
+b01 = input.bool(false, "01 · S++++ · Liquidity Sweep", group=gBA)
+b02 = input.bool(false, "02 · S+++++ · Sweep + Reclaim", group=gBA)
+b03 = input.bool(false, "03 · S+++++ · Level Event — Sweep / Break", group=gBA)
+b04 = input.bool(false, "04 · S++++ · Break + Hold", group=gBA)
+b05 = input.bool(false, "05 · S+++ · Wick Rejection At Key Level", group=gBA)
+gBB = "19B. BRECHA — B · ARMED CANDLE AUTHORITY"
+b06 = input.bool(false, "06 · S+++++ · Armed Candle Direction", group=gBB)
+b07 = input.bool(false, "07 · S++++ · Armed Candle Body Strength", group=gBB)
+b08 = input.bool(false, "08 · S+++ · Armed Candle Close Strength", group=gBB)
+b09 = input.bool(false, "09 · S+++ · Armed Candle Wick Balance", group=gBB)
+b10 = input.bool(false, "10 · S+++ · Armed Candle Expansion Quality", group=gBB)
+gBC = "19C. BRECHA — C · MICROSTRUCTURE"
+b11 = input.bool(false, "11 · S++++ · Structure Shift", group=gBC)
+b12 = input.bool(false, "12 · S+++ · Higher Low / Lower High", group=gBC)
+b13 = input.bool(false, "13 · S+++ · Micro Break Of Structure", group=gBC)
+b14 = input.bool(false, "14 · S++ · Opposite Structure Failure", group=gBC)
+b15 = input.bool(false, "15 · S+++ · Pullback Structure Integrity", group=gBC)
+gBD = "19D. BRECHA — D · MID-BODY ENTRY VALUE"
+b16 = input.bool(false, "16 · S+++++ · Mid-Body Inside Valid Gap", group=gBD)
+b17 = input.bool(false, "17 · S+++ · Premium / Discount Entry", group=gBD)
+b18 = input.bool(false, "18 · S+++ · Entry Not Overextended", group=gBD)
+b19 = input.bool(false, "19 · S++ · Entry Outside Congestion", group=gBD)
+b20 = input.bool(false, "20 · S+++ · Entry Aligned With Imbalance", group=gBD)
+gBE = "19E. BRECHA — E · PULLBACK QUALITY"
+b21 = input.bool(false, "21 · S+++ · Weak Opposite Body", group=gBE)
+b22 = input.bool(false, "22 · S+++ · Controlled Retracement Depth", group=gBE)
+b23 = input.bool(false, "23 · S++ · Low Pullback Overlap", group=gBE)
+b24 = input.bool(false, "24 · S+++ · No Opposite Engulfing", group=gBE)
+b25 = input.bool(false, "25 · S++ · Healthy Pullback Duration", group=gBE)
+gBF = "19F. BRECHA — F · STRUCTURAL SL"
+b26 = input.bool(false, "26 · S++++ · SL Beyond Recent Swing", group=gBF)
+b27 = input.bool(false, "27 · S+++ · SL Beyond Wick Cluster", group=gBF)
+b28 = input.bool(false, "28 · S+++ · SL Outside ATR Noise", group=gBF)
+b29 = input.bool(false, "29 · S+++ · SL Outside Armed Candle Body", group=gBF)
+b30 = input.bool(false, "30 · S+++ · SL Protected By Key Level", group=gBF)
+gBG = "19G. BRECHA — G · TP PATH"
+b31 = input.bool(false, "31 · S+++ · Clear Path To TP", group=gBG)
+b32 = input.bool(false, "32 · S++ · No Opposing Liquidity Wall", group=gBG)
+b33 = input.bool(false, "33 · S++ · TP Before Session Boundary", group=gBG)
+b34 = input.bool(false, "34 · S++ · TP Outside Congestion", group=gBG)
+b35 = input.bool(false, "35 · S+++ · TP Aligned With Next Liquidity", group=gBG)
+gBH = "19H. BRECHA — H · VOLATILITY QUALITY"
+b36 = input.bool(false, "36 · S+++ · Armed Body ATR Quality", group=gBH)
+b37 = input.bool(false, "37 · S+++ · Ladder Step ATR Quality", group=gBH)
+b38 = input.bool(false, "38 · S+++ · No Abnormal Spike", group=gBH)
+b39 = input.bool(false, "39 · S++ · Compression Before Expansion", group=gBH)
+b40 = input.bool(false, "40 · S++ · Stable Distribution Range", group=gBH)
+gBI = "19I. BRECHA — I · DISTRIBUTION TIMING"
+b41 = input.bool(false, "41 · S+++ · Early Distribution Progress", group=gBI)
+b42 = input.bool(false, "42 · S+++ · Setup Freshness", group=gBI)
+b43 = input.bool(false, "43 · S+++ · Distribution Not Paid", group=gBI)
+b44 = input.bool(false, "44 · S+++ · Distribution Not Late", group=gBI)
+b45 = input.bool(false, "45 · S++ · One Armed Plan Per Distribution", group=gBI)
+gBJ = "19J. BRECHA — J · LOCAL INVALIDATION"
+b46 = input.bool(false, "46 · S++++ · No Opposite Structure Shift", group=gBJ)
+b47 = input.bool(false, "47 · S+++ · No Opposite S+ Pattern", group=gBJ)
+b48 = input.bool(false, "48 · S++++ · Direction Remains Valid", group=gBJ)
+b49 = input.bool(false, "49 · S+++ · Trigger Level Remains Valid", group=gBJ)
+b50 = input.bool(false, "50 · S++++ · Plan Intact Before Entry", group=gBJ)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 20) CONSENSUS — 50 CHECKBOX RECRUITS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+gCA = "20A. CONSENSUS — A · DIRECTIONAL AUTHORITY"
+c01 = input.bool(false, "01 · S+++++ · Same Final Direction", group=gCA)
+c02 = input.bool(false, "02 · S+++++ · Predictor Minimum Edge", group=gCA)
+c03 = input.bool(false, "03 · S++++ · Combo Authority Edge", group=gCA)
+c04 = input.bool(false, "04 · S++++ · Accumulation / Manipulation Agreement", group=gCA)
+c05 = input.bool(false, "05 · S+++ · Psychological Bias Agreement", group=gCA)
+gCB = "20B. CONSENSUS — B · CROSS-ENGINE AGREEMENT"
+c06 = input.bool(false, "06 · S++++ · Brecha + Ladder Agreement", group=gCB)
+c07 = input.bool(false, "07 · S+++ · Brecha + Psychology Agreement", group=gCB)
+c08 = input.bool(false, "08 · S+++ · Brecha + Pattern Agreement", group=gCB)
+c09 = input.bool(false, "09 · S+++ · Brecha + Trend Agreement", group=gCB)
+c10 = input.bool(false, "10 · S++++ · Final Action Agreement", group=gCB)
+gCC = "20C. CONSENSUS — C · MULTI-TIMEFRAME CONTEXT"
+c11 = input.bool(false, "11 · S++++ · Higher-Timeframe Direction", group=gCC)
+c12 = input.bool(false, "12 · S+++ · Higher-Timeframe Structure", group=gCC)
+c13 = input.bool(false, "13 · S+++ · Higher-Timeframe Liquidity", group=gCC)
+c14 = input.bool(false, "14 · S+++ · Higher-Timeframe Trend Strength", group=gCC)
+c15 = input.bool(false, "15 · S+++ · Lower-Timeframe Trigger Agreement", group=gCC)
+gCD = "20D. CONSENSUS — D · MARKET REGIME"
+c16 = input.bool(false, "16 · S+++ · Trend Regime Valid", group=gCD)
+c17 = input.bool(false, "17 · S+++ · Chop Regime Block", group=gCD)
+c18 = input.bool(false, "18 · S+++ · Volatility Regime Valid", group=gCD)
+c19 = input.bool(false, "19 · S++ · Expansion Regime Valid", group=gCD)
+c20 = input.bool(false, "20 · S+++ · Mean-Reversion Conflict Block", group=gCD)
+gCE = "20E. CONSENSUS — E · EXECUTION TIMING"
+c21 = input.bool(false, "21 · S++++ · Session Phase Quality", group=gCE)
+c22 = input.bool(false, "22 · S++++ · Minimum Pre-Entry Lead", group=gCE)
+c23 = input.bool(false, "23 · S+++++ · Entry Still Untouched", group=gCE)
+c24 = input.bool(false, "24 · S+++ · Consensus Freshness", group=gCE)
+c25 = input.bool(false, "25 · S+++ · Entry Expiration Quality", group=gCE)
+gCF = "20F. CONSENSUS — F · RISK AUTHORITY"
+c26 = input.bool(false, "26 · S++++ · Minimum Reward Path", group=gCF)
+c27 = input.bool(false, "27 · S+++ · SL Efficiency", group=gCF)
+c28 = input.bool(false, "28 · S+++ · TP Obstacle Score", group=gCF)
+c29 = input.bool(false, "29 · S+++ · Same-Bar Ambiguity Risk", group=gCF)
+c30 = input.bool(false, "30 · S+++ · Gap-Through-Entry Risk", group=gCF)
+gCG = "20G. CONSENSUS — G · PROBABILITY EDGE"
+c31 = input.bool(false, "31 · S++++ · Predictor Probability Edge", group=gCG)
+c32 = input.bool(false, "32 · S+++ · Combo Probability Edge", group=gCG)
+c33 = input.bool(false, "33 · S+++ · Session Probability Edge", group=gCG)
+c34 = input.bool(false, "34 · S+++ · Regime Probability Edge", group=gCG)
+c35 = input.bool(false, "35 · S+++ · Mid-Body Depth Probability Edge", group=gCG)
+gCH = "20H. CONSENSUS — H · CONFLICT DETECTOR"
+c36 = input.bool(false, "36 · S+++++ · No Direction Conflict", group=gCH)
+c37 = input.bool(false, "37 · S++++ · No Context Conflict", group=gCH)
+c38 = input.bool(false, "38 · S+++ · No Pattern Conflict", group=gCH)
+c39 = input.bool(false, "39 · S+++ · No Volatility Conflict", group=gCH)
+c40 = input.bool(false, "40 · S++++ · No Timing Conflict", group=gCH)
+gCI = "20I. CONSENSUS — I · MANIPULATION INTELLIGENCE"
+c41 = input.bool(false, "41 · S++++ · Dual Yellow Strength", group=gCI)
+c42 = input.bool(false, "42 · S+++ · False Balance Override", group=gCI)
+c43 = input.bool(false, "43 · S+++ · Silent Accumulation / Manipulation Edge", group=gCI)
+c44 = input.bool(false, "44 · S+++ · Manipulation Trap Probability", group=gCI)
+c45 = input.bool(false, "45 · S+++ · Accumulation / Manipulation Asymmetry", group=gCI)
+gCJ = "20J. CONSENSUS — J · PENDING ORDER SURVIVAL"
+c46 = input.bool(false, "46 · S+++++ · No Invalidation After Arm", group=gCJ)
+c47 = input.bool(false, "47 · S++++ · Plan Still Qualified Before Entry", group=gCJ)
+c48 = input.bool(false, "48 · S++++ · No Opposite Authority Surge", group=gCJ)
+c49 = input.bool(false, "49 · S+++ · Entry Distance Still Acceptable", group=gCJ)
+c50 = input.bool(false, "50 · S++++ · Cancel Stale Pending Order", group=gCJ)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 6) CLOSED PRESET VALUES
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+profileProfit = elpipoProfile == "PROFIT HUNTER"
+profileStandard = elpipoProfile == "ELPIPO STANDARD"
+profilePrecision = elpipoProfile == "PRECISION MODE"
+profileCustom = elpipoProfile == "CUSTOM RESEARCH"
+tpSteps = tpStepChoice == "1 Step" ? 1 : tpStepChoice == "2 Steps" ? 2 : 3
+slSteps = slStepChoice == "1 Step" ? 1 : slStepChoice == "2 Steps" ? 2 : slStepChoice == "3 Steps" ? 3 : 4
+presetBodyMin = profileProfit ? 45.0 : profileStandard ? 52.0 : profilePrecision ? 60.0 : 52.0
+presetCloseStrengthMin = profileProfit ? 55.0 : profileStandard ? 65.0 : profilePrecision ? 75.0 : 65.0
+presetPredictorEdge = profileProfit ? 5.0 : profileStandard ? 8.0 : profilePrecision ? 12.0 : 8.0
+presetComboEdge = profileProfit ? 5.0 : profileStandard ? 8.0 : profilePrecision ? 12.0 : 8.0
+presetMaxProgress = profileProfit ? 78.0 : profileStandard ? 68.0 : profilePrecision ? 55.0 : 68.0
+presetLateProgress = profileProfit ? 82.0 : profileStandard ? 72.0 : profilePrecision ? 62.0 : 72.0
+presetPaidProgress = profileProfit ? 100.0 : profileStandard ? 92.0 : profilePrecision ? 85.0 : 92.0
+presetOfficialExpirationBars = profileProfit ? 4 : profileStandard ? 3 : profilePrecision ? 2 : 3
+presetStructureLookback = profileProfit ? 4 : profileStandard ? 5 : profilePrecision ? 7 : 5
+presetStructureMemory = profileProfit ? 8 : profileStandard ? 6 : profilePrecision ? 4 : 6
+presetAcceptanceCloses = profileProfit ? 1 : 2
+presetAuthorityMinBrecha = profileProfit ? 58.0 : profileStandard ? 68.0 : profilePrecision ? 78.0 : 68.0
+presetAuthorityMinConsensus = profileProfit ? 55.0 : profileStandard ? 65.0 : profilePrecision ? 78.0 : 68.0
+presetCategoryQuorumBrecha = profileProfit ? 3 : profileStandard ? 4 : profilePrecision ? 5 : 4
+presetCategoryQuorumConsensus = profileProfit ? 0 : profileStandard ? 3 : profilePrecision ? 5 : 4
+presetInvalidationCloses = profilePrecision ? 3 : 2
+presetEntryToleranceATR = profileProfit ? 0.06 : profileStandard ? 0.04 : profilePrecision ? 0.03 : 0.04
+presetReclaimATR = profileProfit ? 0.02 : profileStandard ? 0.03 : profilePrecision ? 0.05 : 0.03
+presetStructureBufferATR = profileProfit ? 0.01 : profileStandard ? 0.02 : profilePrecision ? 0.03 : 0.02
+presetMinRoomPct = profileProfit ? 20.0 : profileStandard ? 35.0 : profilePrecision ? 45.0 : 35.0
+presetADXMin = profileProfit ? 15.0 : profileStandard ? 18.0 : profilePrecision ? 22.0 : 18.0
+presetSupertrendFactor = profileProfit ? 2.5 : profileStandard ? 3.0 : profilePrecision ? 3.5 : 3.0
+presetSupertrendLength = profileProfit ? 8 : profileStandard ? 10 : profilePrecision ? 14 : 10
+presetScoutBodyMin = profileProfit ? 30.0 : profileStandard ? 38.0 : profilePrecision ? 48.0 : 38.0
+presetScoutCloseMin = profileProfit ? 48.0 : profileStandard ? 55.0 : profilePrecision ? 65.0 : 55.0
+presetScoutMaxProgress = profileProfit ? 88.0 : profileStandard ? 75.0 : profilePrecision ? 62.0 : 75.0
+presetScoutExpirationBars = profileProfit ? 6 : profileStandard ? 5 : profilePrecision ? 4 : 5
+presetScoutMinRoomPct = profileProfit ? 12.0 : profileStandard ? 22.0 : profilePrecision ? 32.0 : 22.0
+consensusRequiredByProfile = profilePrecision or profileCustom
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 7) TYPES
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+type ScoutPlan
+    int id = 0
+    int side = 0
+    string state = "NONE"
+    float entry = na
+    float target = na
+    float stop = na
+    float step = na
+    float gapLow = na
+    float gapHigh = na
+    int freezeBar = na
+    int touchBar = na
+    int activeBar = na
+    int expiryBar = na
+    int freezeTime = na
+    int ledgerIndex = -1
+    string reason = "—"
+    string result = "—"
+
+type TradePlan
+    int id = 0
+    int scoutId = 0
+    int side = 0
+    string state = "NONE"
+    string source = "—"
+    float entry = na
+    float target = na
+    float stop = na
+    float step = na
+    int armBar = na
+    int touchBar = na
+    int activeBar = na
+    int expiryBar = na
+    int armTime = na
+    int ledgerIndex = -1
+    float brechaAuthority = na
+    float consensusAuthority = na
+    string reason = "—"
+    string result = "—"
+
+var ScoutPlan scout = ScoutPlan.new()
+var TradePlan official = TradePlan.new()
+var int nextScoutId = 1
+var int nextOfficialId = 1
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 8) COLORS + HELPERS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+cBlack = color.rgb(8,10,15)
+cPanel = color.rgb(16,21,34)
+cPanel2 = color.rgb(25,33,50)
+cPanel3 = color.rgb(38,48,70)
+cMuted = color.rgb(103,115,142)
+cText = color.white
+cSoft = color.rgb(215,220,230)
+cBull = color.rgb(0,178,108)
+cBullDark = color.rgb(0,102,73)
+cBear = color.rgb(220,67,70)
+cBearDark = color.rgb(125,43,49)
+cWarn = color.rgb(218,162,45)
+cYellow = color.rgb(238,194,47)
+cBlue = color.rgb(90,155,255)
+cTeal = color.rgb(0,145,145)
+cScout = color.rgb(176,132,42)
+cOfficial = color.rgb(105,176,255)
+cActive = color.rgb(35,91,145)
+cInvalid = color.rgb(103,61,105)
+cIdle = color.rgb(55,65,82)
+accumBg = color.new(color.blue,86)
+manipBg = color.new(color.orange,84)
+distBg = color.new(color.teal,84)
+gridIdle = color.new(color.white,64)
+centerColor = color.new(color.white,18)
+noBg = color.new(color.white,100)
+
+f_pos(string p) => p == "Top Left" ? position.top_left : p == "Top Center" ? position.top_center : p == "Top Right" ? position.top_right : p == "Middle Left" ? position.middle_left : p == "Middle Center" ? position.middle_center : p == "Middle Right" ? position.middle_right : p == "Bottom Left" ? position.bottom_left : p == "Bottom Center" ? position.bottom_center : position.bottom_right
+f_size(string s) => s == "Tiny" ? size.tiny : s == "Small" ? size.small : s == "Large" ? size.large : size.normal
+f_small_size(string s) => s == "Large" ? size.normal : s == "Medium" ? size.small : size.tiny
+f_big_size(string s) => s == "Large" ? size.huge : s == "Medium" ? size.large : s == "Small" ? size.normal : size.small
+f_clamp(float x, float lo, float hi) => math.max(lo,math.min(hi,x))
+f_pct(float x) => na(x) ? "—" : str.tostring(x,"#.0") + "%"
+f_price(float x) => na(x) ? "—" : str.tostring(x,format.mintick)
+f_num(float x) => na(x) ? "—" : str.tostring(x,"#.##")
+f_side(int d) => d == 1 ? "BUY" : d == -1 ? "SELL" : "WAIT"
+f_side_short(int d) => d == 1 ? "B" : d == -1 ? "S" : "—"
+f_month_name(int m) => m == 1 ? "JANUARY" : m == 2 ? "FEBRUARY" : m == 3 ? "MARCH" : m == 4 ? "APRIL" : m == 5 ? "MAY" : m == 6 ? "JUNE" : m == 7 ? "JULY" : m == 8 ? "AUGUST" : m == 9 ? "SEPTEMBER" : m == 10 ? "OCTOBER" : m == 11 ? "NOVEMBER" : "DECEMBER"
+f_days_in_month(int y,int m) => m == 2 ? ((y % 400 == 0 or (y % 4 == 0 and y % 100 != 0)) ? 29 : 28) : (m == 4 or m == 6 or m == 9 or m == 11 ? 30 : 31)
+f_cell(table t,int c,int r,string txt,color bg,color tc,string sz) => table.cell(t,c,r,txt,bgcolor=bg,text_color=tc,text_size=sz)
+f_update_line(line ln,int x1,int x2,float y,color col,int width,string styleName) =>
+    if not na(ln)
+        line.set_xy1(ln,x1,y)
+        line.set_xy2(ln,x2,y)
+        line.set_color(ln,col)
+        line.set_width(ln,width)
+        line.set_style(ln,styleName == "Solid" ? line.style_solid : styleName == "Dashed" ? line.style_dashed : line.style_dotted)
+f_update_label(label lb,int x,float y,string txt,color tc) =>
+    if not na(lb)
+        label.set_x(lb,x)
+        label.set_y(lb,y)
+        label.set_text(lb,txt)
+        label.set_textcolor(lb,tc)
+f_scout_pending(string s) => s == "FROZEN"
+f_scout_resolved(string s) => s == "WIN" or s == "LOSS" or s == "AMBIGUOUS" or s == "INVALIDATED" or s == "EXPIRED" or s == "NO ENTRY"
+f_official_pending(string s) => s == "ARMED" or s == "TOUCHED"
+f_official_resolved(string s) => s == "WIN" or s == "LOSS" or s == "AMBIGUOUS" or s == "INVALIDATED" or s == "EXPIRED" or s == "NO ENTRY" or s == "LATE"
+f_state_bg(string s) => s == "ACTIVE" ? cActive : s == "ARMED" or s == "FROZEN" ? cScout : s == "TOUCHED" ? cWarn : s == "WIN" ? cBullDark : s == "LOSS" ? cBearDark : s == "AMBIGUOUS" ? color.rgb(165,112,32) : s == "INVALIDATED" ? cInvalid : s == "EXPIRED" or s == "NO ENTRY" or s == "LATE" ? cIdle : cPanel2
+
+masterSize = f_size(masterWindowSizeInput)
+masterSmall = f_small_size(masterWindowSizeInput)
+masterBig = f_big_size(masterWindowSizeInput)
+chartTextSize = f_size(chartTextSizeInput)
+calendarTextSize = f_size(calendarSizeInput)
+calendarSmall = f_small_size(calendarSizeInput)
+calendarBig = f_big_size(calendarSizeInput)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 9) SESSIONS + RAW FEATURES
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+inAccum = not na(time(timeframe.period,accumSession,tz))
+inManip = not na(time(timeframe.period,manipSession,tz))
+inManipSecond = not na(time(timeframe.period,manipSecondHalfSession,tz))
+inDist = not na(time(timeframe.period,distSession,tz))
+accumStart = inAccum and not (inAccum[1] == true)
+manipStart = inManip and not (inManip[1] == true)
+distStart = inDist and not (inDist[1] == true)
+distEnd = not inDist and inDist[1] == true
+atr = ta.atr(14)
+body = math.abs(close-open)
+rng = high-low
+bodyPct = rng > 0 ? body/rng*100.0 : 0.0
+upperWickPct = rng > 0 ? (high-math.max(open,close))/rng*100.0 : 0.0
+lowerWickPct = rng > 0 ? (math.min(open,close)-low)/rng*100.0 : 0.0
+barDir = close > open ? 1 : close < open ? -1 : 0
+barCloseTime = int(nz(time_close,time + nz(time-time[1],1)))
+entryTolerance = atr*presetEntryToleranceATR
+reclaimBuffer = atr*presetReclaimATR
+structureBuffer = atr*presetStructureBufferATR
+localEMA20 = ta.ema(close,20)
+localEMA50 = ta.ema(close,50)
+[localDIPlus,localDIMinus,localADX] = ta.dmi(14,14)
+[htfClose,htfEMA20,htfEMA50,htfRSI,htfATR,htfHigh20,htfLow20] = request.security(syminfo.tickerid,consensusHTF,[close,ta.ema(close,20),ta.ema(close,50),ta.rsi(close,14),ta.atr(14),ta.highest(high,20),ta.lowest(low,20)])
+[supertrendValue,supertrendDirection] = ta.supertrend(presetSupertrendFactor,presetSupertrendLength)
+supertrendBull = not useSupertrend or (supertrendDirection < 0 and close > supertrendValue)
+supertrendBear = not useSupertrend or (supertrendDirection > 0 and close < supertrendValue)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 10) SESSION + DRAWING STATE
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+var float accumHigh = na
+var float accumLow = na
+var float accumBullBody = 0.0
+var float accumBearBody = 0.0
+var int accumLeftBar = na
+var int accumLeftTime = na
+var float manipHigh = na
+var float manipLow = na
+var float manipClose = na
+var float manipBullBody = 0.0
+var float manipBearBody = 0.0
+var int manipLeftBar = na
+var int manipLeftTime = na
+var bool sweepAccumHigh = false
+var bool sweepAccumLow = false
+var int centerCrossCount = 0
+var float lastManipCenter = na
+var float distRangeHigh = na
+var float distRangeLow = na
+var float distLowest = na
+var float distHighest = na
+var float distBullBody = 0.0
+var float distBearBody = 0.0
+var int distLeftBar = na
+var int distLeftTime = na
+var int distBars = 0
+var float accYBody = na
+var float accYOpen = na
+var float accYClose = na
+var float accYHigh = na
+var float accYLow = na
+var float accYBodyPct = na
+var int accYDir = 0
+var int accYBar = na
+var int accYTime = na
+var int accYCloseTime = na
+var float manipYBody = na
+var float manipYOpen = na
+var float manipYClose = na
+var float manipYHigh = na
+var float manipYLow = na
+var float manipYBodyPct = na
+var int manipYDir = 0
+var int manipYBar = na
+var int manipYTime = na
+var int manipYCloseTime = na
+var int manipYQ = 0
+var float largestManipWickPct = na
+var int largestManipWickDir = 0
+var int largestManipWickQ = 0
+var float lockedBullScore = na
+var float lockedBearScore = na
+var int lockedDirection = 0
+var string lockedDirectionSource = "NO CONTEXT"
+var bool contextInvalidated = false
+var int oppositeInvalidCloseCount = 0
+var bool scoutCreatedThisDistribution = false
+var bool officialCreatedThisDistribution = false
+var bool officialLateRecordedThisDistribution = false
+var box accumBox = na
+var box manipBox = na
+var box distBox = na
+var label accumNameLabel = na
+var label manipNameLabel = na
+var label distNameLabel = na
+var line accumCenterH = na
+var line accumCenterV = na
+var line manipCenterH = na
+var line manipCenterV = na
+var line distCenterH = na
+var line distCenterV = na
+var array<label> accumQuadrantLabels = array.new_label(4)
+var array<label> manipQuadrantLabels = array.new_label(4)
+var box accYBox = na
+var line accYWick = na
+var box manipYBox = na
+var line manipYWick = na
+var array<line> ladderLines = array.new_line(7)
+var array<label> ladderLabels = array.new_label(7)
+var line planEntryLine = na
+var line planTargetLine = na
+var line planStopLine = na
+var label planEntryLabel = na
+var label planTargetLabel = na
+var label planStopLabel = na
+var array<line> dimensionLines = array.new_line(18)
+var array<label> dimensionLabels = array.new_label(6)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 11) RESET + SESSION BUILD
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+if accumStart
+    accumHigh := high
+    accumLow := low
+    accumBullBody := 0.0
+    accumBearBody := 0.0
+    accumLeftBar := bar_index
+    accumLeftTime := time
+    manipHigh := na
+    manipLow := na
+    manipClose := na
+    manipBullBody := 0.0
+    manipBearBody := 0.0
+    manipLeftBar := na
+    manipLeftTime := na
+    sweepAccumHigh := false
+    sweepAccumLow := false
+    centerCrossCount := 0
+    lastManipCenter := na
+    distRangeHigh := na
+    distRangeLow := na
+    distLowest := na
+    distHighest := na
+    distBullBody := 0.0
+    distBearBody := 0.0
+    distLeftBar := na
+    distLeftTime := na
+    distBars := 0
+    accYBody := na
+    accYOpen := na
+    accYClose := na
+    accYHigh := na
+    accYLow := na
+    accYBodyPct := na
+    accYDir := 0
+    accYBar := na
+    accYTime := na
+    accYCloseTime := na
+    manipYBody := na
+    manipYOpen := na
+    manipYClose := na
+    manipYHigh := na
+    manipYLow := na
+    manipYBodyPct := na
+    manipYDir := 0
+    manipYBar := na
+    manipYTime := na
+    manipYCloseTime := na
+    manipYQ := 0
+    largestManipWickPct := na
+    largestManipWickDir := 0
+    largestManipWickQ := 0
+    lockedBullScore := na
+    lockedBearScore := na
+    lockedDirection := 0
+    lockedDirectionSource := "NO CONTEXT"
+    contextInvalidated := false
+    oppositeInvalidCloseCount := 0
+    scoutCreatedThisDistribution := false
+    officialCreatedThisDistribution := false
+    officialLateRecordedThisDistribution := false
+    scout := ScoutPlan.new()
+    official := TradePlan.new()
+    accumCenterH := na
+    accumCenterV := na
+    accYBox := na
+    accYWick := na
+    for resetQuadrant = 0 to 3
+        array.set(accumQuadrantLabels,resetQuadrant,na)
+    if showSessionBoxes
+        accumBox := box.new(accumLeftTime,high,barCloseTime,low,xloc=xloc.bar_time,bgcolor=accumBg,border_color=color.white,border_width=1)
+    if showSessionNames
+        accumNameLabel := label.new(bar_index,high,"ACCUMULATION\n19:00 – 01:00",style=label.style_none,textcolor=cText,color=noBg,size=size.small)
+
+if inAccum
+    accumHigh := math.max(nz(accumHigh,high),high)
+    accumLow := math.min(nz(accumLow,low),low)
+    if barstate.isconfirmed
+        accumBullBody += close > open ? body : 0.0
+        accumBearBody += close < open ? body : 0.0
+        bool accCandidate = na(accYBody) or body > accYBody or body >= nz(accYBody,body)*0.88
+        if accCandidate
+            accYBody := body
+            accYOpen := open
+            accYClose := close
+            accYHigh := high
+            accYLow := low
+            accYBodyPct := bodyPct
+            accYDir := barDir
+            accYBar := bar_index
+            accYTime := time
+            accYCloseTime := barCloseTime
+    float accumMid = (accumHigh+accumLow)/2.0
+    int accumCenterBar = int(math.round((accumLeftBar+bar_index)/2.0))
+    if showSessionBoxes and not na(accumBox)
+        box.set_right(accumBox,barCloseTime)
+        box.set_top(accumBox,accumHigh)
+        box.set_bottom(accumBox,accumLow)
+    if showSessionNames and not na(accumNameLabel)
+        label.set_x(accumNameLabel,accumCenterBar)
+        label.set_y(accumNameLabel,accumHigh)
+    if showCenterLines
+        if na(accumCenterH)
+            accumCenterH := line.new(accumLeftBar,accumMid,bar_index,accumMid,xloc=xloc.bar_index,color=centerColor,style=line.style_dotted)
+            accumCenterV := line.new(accumCenterBar,accumHigh,accumCenterBar,accumLow,xloc=xloc.bar_index,color=centerColor,style=line.style_dotted)
+        else
+            line.set_xy1(accumCenterH,accumLeftBar,accumMid)
+            line.set_xy2(accumCenterH,bar_index,accumMid)
+            line.set_xy1(accumCenterV,accumCenterBar,accumHigh)
+            line.set_xy2(accumCenterV,accumCenterBar,accumLow)
+    if showQuadrants
+        int aqx1 = int(math.round((accumLeftBar+accumCenterBar)/2.0))
+        int aqx2 = int(math.round((accumCenterBar+bar_index)/2.0))
+        float aqy1 = (accumHigh+accumMid)/2.0
+        float aqy2 = (accumLow+accumMid)/2.0
+        array<int> aqxs = array.from(aqx1,aqx2,aqx1,aqx2)
+        array<float> aqys = array.from(aqy1,aqy1,aqy2,aqy2)
+        for qi = 0 to 3
+            label qlb = array.get(accumQuadrantLabels,qi)
+            if na(qlb)
+                qlb := label.new(array.get(aqxs,qi),array.get(aqys,qi),"Q"+str.tostring(qi+1),style=label.style_none,textcolor=color.new(color.white,35),color=noBg,size=size.small)
+                array.set(accumQuadrantLabels,qi,qlb)
+            else
+                label.set_x(qlb,array.get(aqxs,qi))
+                label.set_y(qlb,array.get(aqys,qi))
+    if showYellowCandles and not na(accYBar)
+        if na(accYBox)
+            accYBox := box.new(accYTime,math.max(accYOpen,accYClose),accYCloseTime,math.min(accYOpen,accYClose),xloc=xloc.bar_time,bgcolor=cYellow,border_color=cYellow,border_width=2)
+            int accWickMid = int(math.round((accYTime+accYCloseTime)/2.0))
+            accYWick := line.new(accWickMid,accYHigh,accWickMid,accYLow,xloc=xloc.bar_time,color=cYellow,width=2)
+        else
+            box.set_left(accYBox,accYTime)
+            box.set_right(accYBox,accYCloseTime)
+            box.set_top(accYBox,math.max(accYOpen,accYClose))
+            box.set_bottom(accYBox,math.min(accYOpen,accYClose))
+            int accWickMid = int(math.round((accYTime+accYCloseTime)/2.0))
+            line.set_xy1(accYWick,accWickMid,accYHigh)
+            line.set_xy2(accYWick,accWickMid,accYLow)
+
+if manipStart
+    manipHigh := high
+    manipLow := low
+    manipClose := close
+    manipBullBody := 0.0
+    manipBearBody := 0.0
+    manipLeftBar := bar_index
+    manipLeftTime := time
+    sweepAccumHigh := false
+    sweepAccumLow := false
+    centerCrossCount := 0
+    lastManipCenter := (high+low)/2.0
+    manipCenterH := na
+    manipCenterV := na
+    manipYBox := na
+    manipYWick := na
+    for resetQuadrant = 0 to 3
+        array.set(manipQuadrantLabels,resetQuadrant,na)
+    if showSessionBoxes
+        manipBox := box.new(manipLeftTime,high,barCloseTime,low,xloc=xloc.bar_time,bgcolor=manipBg,border_color=color.white,border_width=1)
+    if showSessionNames
+        manipNameLabel := label.new(bar_index,high,"MANIPULATION\n01:00 – 07:00",style=label.style_none,textcolor=cText,color=noBg,size=size.small)
+
+if inManip
+    float previousCenter = lastManipCenter
+    manipHigh := math.max(nz(manipHigh,high),high)
+    manipLow := math.min(nz(manipLow,low),low)
+    manipClose := close
+    float manipCenter = (manipHigh+manipLow)/2.0
+    lastManipCenter := manipCenter
+    sweepAccumHigh := not na(accumHigh) and manipHigh > accumHigh
+    sweepAccumLow := not na(accumLow) and manipLow < accumLow
+    float manipPosition = manipHigh > manipLow ? (close-manipLow)/(manipHigh-manipLow) : 0.5
+    int liveManipQ = manipPosition >= 0.5 ? (inManipSecond ? 2 : 1) : (inManipSecond ? 4 : 3)
+    if barstate.isconfirmed
+        manipBullBody += close > open ? body : 0.0
+        manipBearBody += close < open ? body : 0.0
+        if not na(previousCenter) and ((close > manipCenter and close[1] <= previousCenter) or (close < manipCenter and close[1] >= previousCenter))
+            centerCrossCount += 1
+        if na(manipYBody) or body > manipYBody
+            manipYBody := body
+            manipYOpen := open
+            manipYClose := close
+            manipYHigh := high
+            manipYLow := low
+            manipYBodyPct := bodyPct
+            manipYDir := barDir
+            manipYBar := bar_index
+            manipYTime := time
+            manipYCloseTime := barCloseTime
+            manipYQ := liveManipQ
+        float dominantWick = math.max(upperWickPct,lowerWickPct)
+        if na(largestManipWickPct) or dominantWick > largestManipWickPct
+            largestManipWickPct := dominantWick
+            largestManipWickDir := lowerWickPct >= upperWickPct ? 1 : -1
+            largestManipWickQ := liveManipQ
+    int manipCenterBar = int(math.round((manipLeftBar+bar_index)/2.0))
+    if showSessionBoxes and not na(manipBox)
+        box.set_right(manipBox,barCloseTime)
+        box.set_top(manipBox,manipHigh)
+        box.set_bottom(manipBox,manipLow)
+    if showSessionNames and not na(manipNameLabel)
+        label.set_x(manipNameLabel,manipCenterBar)
+        label.set_y(manipNameLabel,manipHigh)
+    if showCenterLines
+        if na(manipCenterH)
+            manipCenterH := line.new(manipLeftBar,manipCenter,bar_index,manipCenter,xloc=xloc.bar_index,color=centerColor,style=line.style_dotted)
+            manipCenterV := line.new(manipCenterBar,manipHigh,manipCenterBar,manipLow,xloc=xloc.bar_index,color=centerColor,style=line.style_dotted)
+        else
+            line.set_xy1(manipCenterH,manipLeftBar,manipCenter)
+            line.set_xy2(manipCenterH,bar_index,manipCenter)
+            line.set_xy1(manipCenterV,manipCenterBar,manipHigh)
+            line.set_xy2(manipCenterV,manipCenterBar,manipLow)
+    if showQuadrants
+        int mqx1 = int(math.round((manipLeftBar+manipCenterBar)/2.0))
+        int mqx2 = int(math.round((manipCenterBar+bar_index)/2.0))
+        float mqy1 = (manipHigh+manipCenter)/2.0
+        float mqy2 = (manipLow+manipCenter)/2.0
+        array<int> mqxs = array.from(mqx1,mqx2,mqx1,mqx2)
+        array<float> mqys = array.from(mqy1,mqy1,mqy2,mqy2)
+        for qi = 0 to 3
+            label qlb = array.get(manipQuadrantLabels,qi)
+            if na(qlb)
+                qlb := label.new(array.get(mqxs,qi),array.get(mqys,qi),"Q"+str.tostring(qi+1),style=label.style_none,textcolor=color.new(color.white,35),color=noBg,size=size.small)
+                array.set(manipQuadrantLabels,qi,qlb)
+            else
+                label.set_x(qlb,array.get(mqxs,qi))
+                label.set_y(qlb,array.get(mqys,qi))
+    if showYellowCandles and not na(manipYBar)
+        if na(manipYBox)
+            manipYBox := box.new(manipYTime,math.max(manipYOpen,manipYClose),manipYCloseTime,math.min(manipYOpen,manipYClose),xloc=xloc.bar_time,bgcolor=cYellow,border_color=cYellow,border_width=2)
+            int manipWickMid = int(math.round((manipYTime+manipYCloseTime)/2.0))
+            manipYWick := line.new(manipWickMid,manipYHigh,manipWickMid,manipYLow,xloc=xloc.bar_time,color=cYellow,width=2)
+        else
+            box.set_left(manipYBox,manipYTime)
+            box.set_right(manipYBox,manipYCloseTime)
+            box.set_top(manipYBox,math.max(manipYOpen,manipYClose))
+            box.set_bottom(manipYBox,math.min(manipYOpen,manipYClose))
+            int manipWickMid = int(math.round((manipYTime+manipYCloseTime)/2.0))
+            line.set_xy1(manipYWick,manipWickMid,manipYHigh)
+            line.set_xy2(manipYWick,manipWickMid,manipYLow)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 12) AMD CONTEXT — ACCUMULATION + MANIPULATION ONLY
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+accumTotal = accumBullBody+accumBearBody
+accumGreenPct = accumTotal > 0 ? accumBullBody/accumTotal*100.0 : na
+accumRedPct = accumTotal > 0 ? accumBearBody/accumTotal*100.0 : na
+accumOverall = accumTotal > 0 ? math.abs(accumBullBody-accumBearBody)/accumTotal*100.0 : na
+accumDirection = accumBullBody > accumBearBody ? 1 : accumBearBody > accumBullBody ? -1 : 0
+accumSigned = accumDirection*nz(accumOverall,0.0)
+manipTotal = manipBullBody+manipBearBody
+manipGreenPct = manipTotal > 0 ? manipBullBody/manipTotal*100.0 : na
+manipRedPct = manipTotal > 0 ? manipBearBody/manipTotal*100.0 : na
+manipOverall = manipTotal > 0 ? math.abs(manipBullBody-manipBearBody)/manipTotal*100.0 : na
+manipDirection = manipBullBody > manipBearBody ? 1 : manipBearBody > manipBullBody ? -1 : 0
+manipSigned = manipDirection*nz(manipOverall,0.0)
+signedCombo = accumSigned+manipSigned
+comboAbs = math.abs(signedCombo)
+accYShare = accumTotal > 0 and not na(accYBody) ? accYBody/accumTotal*100.0 : na
+manipYShare = manipTotal > 0 and not na(manipYBody) ? manipYBody/manipTotal*100.0 : na
+accYScore = not na(accYBodyPct) and not na(accYShare) ? f_clamp(accYBodyPct*0.65+accYShare*0.35,0.0,100.0) : na
+manipYScore = not na(manipYBodyPct) and not na(manipYShare) ? f_clamp(manipYBodyPct*0.65+manipYShare*0.35,0.0,100.0) : na
+accYQualified = not na(accYBodyPct) and accYBodyPct >= presetBodyMin
+manipYQualified = not na(manipYBodyPct) and manipYBodyPct >= presetBodyMin
+dualYellowAgree = accYQualified and manipYQualified and accYDir != 0 and accYDir == manipYDir
+dualYellowConflict = accYQualified and manipYQualified and accYDir != 0 and manipYDir != 0 and accYDir != manipYDir
+silentAccum = nz(accumOverall,100.0) <= 5.0
+silentManip = nz(manipOverall,100.0) <= 5.0
+balanceContext = nz(accumOverall,100.0) <= 8.0 and nz(manipOverall,100.0) <= 8.0
+bothAccumSweeps = sweepAccumHigh and sweepAccumLow
+float contextBullScore = useComboAuthority ? f_clamp(50.0+signedCombo*0.55,0.0,100.0) : 50.0
+float contextBearScore = useComboAuthority ? f_clamp(50.0-signedCombo*0.55,0.0,100.0) : 50.0
+string liveContextRead = useComboAuthority ? "PERCENT PRESSURE" : "COMBO OFF"
+if useDualYellow
+    if dualYellowAgree
+        if accYDir == 1
+            contextBullScore += 24.0
+            contextBearScore -= 8.0
+            liveContextRead := "DUAL YELLOW BULL"
+        else
+            contextBearScore += 24.0
+            contextBullScore -= 8.0
+            liveContextRead := "DUAL YELLOW BEAR"
+    else if dualYellowConflict
+        bool accumulationWinsYellow = nz(accYScore,0.0) >= nz(manipYScore,0.0)
+        int yellowWinnerDirection = accumulationWinsYellow ? accYDir : manipYDir
+        if yellowWinnerDirection == 1
+            contextBullScore += 12.0
+            contextBearScore -= 5.0
+        else if yellowWinnerDirection == -1
+            contextBearScore += 12.0
+            contextBullScore -= 5.0
+        liveContextRead := accumulationWinsYellow ? "ACC YELLOW LEADS" : "MANIP YELLOW OVERRIDE"
+if usePsychology
+    if bothAccumSweeps
+        contextBullScore -= 8.0
+        contextBearScore -= 8.0
+        liveContextRead := "BOTH-SIDE SWEEP · DIRTY"
+    if (silentAccum and silentManip) or balanceContext
+        if manipYQualified and manipYDir == 1
+            contextBullScore += 18.0
+            contextBearScore -= 7.0
+            liveContextRead := "SILENT BULL POWER"
+        else if manipYQualified and manipYDir == -1
+            contextBearScore += 18.0
+            contextBullScore -= 7.0
+            liveContextRead := "SILENT BEAR POWER"
+    if largestManipWickDir == 1 and (largestManipWickQ == 3 or largestManipWickQ == 4)
+        contextBullScore += 8.0
+    if largestManipWickDir == -1 and (largestManipWickQ == 1 or largestManipWickQ == 2)
+        contextBearScore += 8.0
+contextBullScore := f_clamp(contextBullScore,0.0,100.0)
+contextBearScore := f_clamp(contextBearScore,0.0,100.0)
+livePredictorEdge = math.abs(contextBullScore-contextBearScore)
+livePredictorDirection = contextBullScore > contextBearScore+presetPredictorEdge ? 1 : contextBearScore > contextBullScore+presetPredictorEdge ? -1 : 0
+liveDirectionSource = dualYellowAgree and useDualYellow ? "DUAL YELLOW " + f_side(accYDir) : livePredictorDirection != 0 ? "AMD PREDICTOR " + f_side(livePredictorDirection) : "NO CLEAR AMD EDGE"
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 13) DISTRIBUTION — LOCK CONTEXT, NEVER AUTO-REVERSE
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+if distStart
+    distRangeHigh := manipHigh
+    distRangeLow := manipLow
+    distLowest := low
+    distHighest := high
+    distBullBody := 0.0
+    distBearBody := 0.0
+    distLeftBar := bar_index
+    distLeftTime := time
+    distBars := 1
+    lockedBullScore := contextBullScore
+    lockedBearScore := contextBearScore
+    lockedDirection := lockDirectionAtDistribution ? livePredictorDirection : livePredictorDirection
+    lockedDirectionSource := liveDirectionSource
+    contextInvalidated := false
+    oppositeInvalidCloseCount := 0
+    scoutCreatedThisDistribution := false
+    officialCreatedThisDistribution := false
+    officialLateRecordedThisDistribution := false
+    distCenterH := na
+    distCenterV := na
+    scout := ScoutPlan.new()
+    official := TradePlan.new()
+    if showSessionBoxes and not na(distRangeHigh) and not na(distRangeLow)
+        distBox := box.new(distLeftTime,distRangeHigh,barCloseTime,distRangeLow,xloc=xloc.bar_time,bgcolor=distBg,border_color=color.white,border_width=1)
+    if showSessionNames and not na(distRangeHigh)
+        distNameLabel := label.new(bar_index,distRangeHigh,"DISTRIBUTION\n07:00 – 13:00",style=label.style_none,textcolor=cText,color=noBg,size=size.small)
+
+if inDist
+    distLowest := math.min(nz(distLowest,low),low)
+    distHighest := math.max(nz(distHighest,high),high)
+    distBars := distStart ? 1 : distBars+1
+    if barstate.isconfirmed
+        distBullBody += close > open ? body : 0.0
+        distBearBody += close < open ? body : 0.0
+    if showSessionBoxes and not na(distBox)
+        box.set_right(distBox,barCloseTime)
+        box.set_top(distBox,distRangeHigh)
+        box.set_bottom(distBox,distRangeLow)
+    if showSessionNames and not na(distNameLabel)
+        int distCenterBar = int(math.round((distLeftBar+bar_index)/2.0))
+        label.set_x(distNameLabel,distCenterBar)
+        label.set_y(distNameLabel,distRangeHigh)
+    if showCenterLines and not na(distRangeHigh) and not na(distRangeLow)
+        float visualDistCenter = (distRangeHigh+distRangeLow)/2.0
+        int distCenterBar = int(math.round((distLeftBar+bar_index)/2.0))
+        if na(distCenterH)
+            distCenterH := line.new(distLeftBar,visualDistCenter,bar_index,visualDistCenter,xloc=xloc.bar_index,color=centerColor,style=line.style_dotted)
+            distCenterV := line.new(distCenterBar,distRangeHigh,distCenterBar,distRangeLow,xloc=xloc.bar_index,color=centerColor,style=line.style_dotted)
+        else
+            line.set_xy1(distCenterH,distLeftBar,visualDistCenter)
+            line.set_xy2(distCenterH,bar_index,visualDistCenter)
+            line.set_xy1(distCenterV,distCenterBar,distRangeHigh)
+            line.set_xy2(distCenterV,distCenterBar,distRangeLow)
+
+distTotal = distBullBody+distBearBody
+distBullPct = distTotal > 0 ? distBullBody/distTotal*100.0 : 50.0
+distBearPct = distTotal > 0 ? distBearBody/distTotal*100.0 : 50.0
+hasManipRange = not na(manipHigh) and not na(manipLow) and manipHigh > manipLow
+ladderRange = hasManipRange ? manipHigh-manipLow : na
+ladderStep = hasManipRange ? ladderRange*0.25 : na
+levelP3 = hasManipRange ? manipHigh+ladderStep : na
+levelP2 = hasManipRange ? manipHigh : na
+levelP1 = hasManipRange ? manipLow+ladderRange*0.75 : na
+levelZ = hasManipRange ? manipLow+ladderRange*0.50 : na
+levelM1 = hasManipRange ? manipLow+ladderRange*0.25 : na
+levelM2 = hasManipRange ? manipLow : na
+levelM3 = hasManipRange ? manipLow-ladderStep : na
+distCenter = hasManipRange ? levelZ : na
+if inDist and barstate.isconfirmed and lockedDirection != 0 and not na(distCenter)
+    bool oppositeClose = lockedDirection == 1 ? close < distCenter-structureBuffer : close > distCenter+structureBuffer
+    oppositeInvalidCloseCount := oppositeClose ? oppositeInvalidCloseCount+1 : 0
+    bool oppositePressure = lockedDirection == 1 ? distBearPct >= 60.0 : distBullPct >= 60.0
+    if oppositeInvalidCloseCount >= presetInvalidationCloses and oppositePressure
+        contextInvalidated := true
+officialContextSide = contextInvalidated ? 0 : lockedDirection
+officialBullScore = lockDirectionAtDistribution and not na(lockedBullScore) ? lockedBullScore : contextBullScore
+officialBearScore = lockDirectionAtDistribution and not na(lockedBearScore) ? lockedBearScore : contextBearScore
+officialPredictorEdge = math.abs(officialBullScore-officialBearScore)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 14) PATTERNS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+prevBull = close[1] > open[1]
+prevBear = close[1] < open[1]
+prevBody = math.abs(close[1]-open[1])
+prevMidBody = (open[1]+close[1])/2.0
+isDoji = bodyPct <= 10.0
+isHammer = lowerWickPct >= bodyPct*2.2 and upperWickPct <= math.max(bodyPct*0.75,8.0) and bodyPct > 10.0
+isShootingStar = upperWickPct >= bodyPct*2.2 and lowerWickPct <= math.max(bodyPct*0.75,8.0) and bodyPct > 10.0
+isBullEngulf = prevBear and close > open and open <= close[1] and close >= open[1] and bodyPct >= 55.0
+isBearEngulf = prevBull and close < open and open >= close[1] and close <= open[1] and bodyPct >= 55.0
+isPiercing = prevBear and close > open and open < close[1] and close > prevMidBody and close < open[1] and bodyPct >= 35.0
+isDarkCloud = prevBull and close < open and open > close[1] and close < prevMidBody and close > open[1] and bodyPct >= 35.0
+isBullHarami = prevBear and close > open and open > close[1] and close < open[1] and body < prevBody and bodyPct <= 45.0
+isBearHarami = prevBull and close < open and open < close[1] and close > open[1] and body < prevBody and bodyPct <= 45.0
+currentBullPattern = usePatternEngine and (isBullEngulf or isPiercing or isHammer or isBullHarami)
+currentBearPattern = usePatternEngine and (isBearEngulf or isDarkCloud or isShootingStar or isBearHarami)
+currentDojiPattern = usePatternEngine and isDoji and not currentBullPattern and not currentBearPattern
+bullPatternBars = ta.barssince(currentBullPattern)
+bearPatternBars = ta.barssince(currentBearPattern)
+bullPatternRecent = not na(bullPatternBars) and bullPatternBars <= 3
+bearPatternRecent = not na(bearPatternBars) and bearPatternBars <= 3
+plotshape(showPatternMarkers and currentBullPattern,title="Bull S+ Pattern",style=shape.triangleup,location=location.belowbar,color=cBull,size=size.tiny,text="S+",textcolor=cText)
+plotshape(showPatternMarkers and currentBearPattern,title="Bear S+ Pattern",style=shape.triangledown,location=location.abovebar,color=cBear,size=size.tiny,text="S+",textcolor=cText)
+plotshape(showPatternMarkers and currentDojiPattern,title="Doji Warning",style=shape.circle,location=location.abovebar,color=cWarn,size=size.tiny,text="D",textcolor=cBlack)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 15) LIVE PROJECTION FACTORY
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+float rawGapLow = na
+float rawGapHigh = na
+if hasManipRange
+    if close >= levelP2
+        rawGapLow := levelP2
+        rawGapHigh := levelP3
+    else if close >= levelP1
+        rawGapLow := levelP1
+        rawGapHigh := levelP2
+    else if close >= levelZ
+        rawGapLow := levelZ
+        rawGapHigh := levelP1
+    else if close >= levelM1
+        rawGapLow := levelM1
+        rawGapHigh := levelZ
+    else if close >= levelM2
+        rawGapLow := levelM2
+        rawGapHigh := levelM1
+    else
+        rawGapLow := levelM3
+        rawGapHigh := levelM2
+rawSide = officialContextSide
+float rawEntry = na
+if rawSide != 0 and hasManipRange
+    rawEntry := entryModel == "Mid-Body 50%" ? (open+close)/2.0 : rawSide == 1 ? rawGapLow : rawGapHigh
+rawStep = not na(ladderStep) ? math.abs(ladderStep) : na
+rawTarget = rawSide == 1 and not na(rawEntry) ? rawEntry+rawStep*tpSteps : rawSide == -1 and not na(rawEntry) ? rawEntry-rawStep*tpSteps : na
+rawStop = rawSide == 1 and not na(rawEntry) ? rawEntry-rawStep*slSteps : rawSide == -1 and not na(rawEntry) ? rawEntry+rawStep*slSteps : na
+rawGapMid = not na(rawGapLow) and not na(rawGapHigh) ? (rawGapLow+rawGapHigh)/2.0 : na
+rawGapTolerance = not na(rawStep) ? math.max(syminfo.mintick*2.0,rawStep*0.08) : syminfo.mintick*2.0
+rawEntryInsideGap = not na(rawEntry) and not na(rawGapLow) and not na(rawGapHigh) and rawEntry >= rawGapLow-rawGapTolerance and rawEntry <= rawGapHigh+rawGapTolerance
+rawRiskMapValid = rawSide != 0 and not na(rawEntry) and not na(rawTarget) and not na(rawStop) and (rawSide == 1 ? rawTarget > rawEntry and rawStop < rawEntry : rawTarget < rawEntry and rawStop > rawEntry)
+rawMovementProgress = hasManipRange and rawSide != 0 ? f_clamp(rawSide == 1 ? (close-manipLow)/ladderRange*100.0 : (manipHigh-close)/ladderRange*100.0,0.0,150.0) : 0.0
+rawTimingPaid = rawMovementProgress >= presetPaidProgress or (rawSide == 1 and not na(rawTarget) and close >= rawTarget) or (rawSide == -1 and not na(rawTarget) and close <= rawTarget)
+rawTimingLate = not rawTimingPaid and rawMovementProgress >= presetLateProgress
+bullSteps = math.sum((close > close[1] ? 1.0 : 0.0)+(low >= low[1] ? 1.0 : 0.0),3)
+bearSteps = math.sum((close < close[1] ? 1.0 : 0.0)+(high <= high[1] ? 1.0 : 0.0),3)
+bullIntent = bullSteps >= 3.6 and (not requireCorrectCenterSide or na(distCenter) or close >= distCenter)
+bearIntent = bearSteps >= 3.6 and (not requireCorrectCenterSide or na(distCenter) or close <= distCenter)
+rawIntentOK = rawSide == 1 ? bullIntent : rawSide == -1 ? bearIntent : false
+rawCloseStrength = rng > 0 ? (rawSide == 1 ? (close-low)/rng*100.0 : rawSide == -1 ? (high-close)/rng*100.0 : 0.0) : 0.0
+rawDirectionalCandleOK = rawSide == 1 ? close > open : rawSide == -1 ? close < open : false
+rawScoutCandleOK = rawDirectionalCandleOK and bodyPct >= presetScoutBodyMin and rawCloseStrength >= presetScoutCloseMin
+rawRoomDistance = rawSide == 1 ? rawTarget-close : rawSide == -1 ? close-rawTarget : na
+rawRewardDistance = not na(rawTarget) and not na(rawEntry) ? math.abs(rawTarget-rawEntry) : na
+rawRoomPct = not na(rawRoomDistance) and not na(rawRewardDistance) and rawRewardDistance > 0 ? f_clamp(rawRoomDistance/rawRewardDistance*100.0,0.0,150.0) : 0.0
+rawScoutRoomOK = rawRoomPct >= presetScoutMinRoomPct
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 16) CALENDAR STORAGE
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CAL_NONE = 0
+CAL_ARMED = 10
+CAL_ACTIVE = 20
+CAL_WIN = 1
+CAL_LOSS = -1
+CAL_AMBIGUOUS = 2
+CAL_NO_ENTRY = 3
+CAL_LATE = 5
+CAL_INVALIDATED = 6
+CAL_EXPIRED = 7
+var array<bool> scoutDays = array.new_bool(372,false)
+var array<int> scoutDirections = array.new_int(372,0)
+var array<int> scoutTimes = array.new_int(372,-1)
+var array<int> scoutResults = array.new_int(372,CAL_NONE)
+var array<float> scoutPoints = array.new_float(372,0.0)
+var array<bool> officialDays = array.new_bool(372,false)
+var array<int> officialDirections = array.new_int(372,0)
+var array<int> officialTimes = array.new_int(372,-1)
+var array<int> officialResults = array.new_int(372,CAL_NONE)
+var array<float> officialPoints = array.new_float(372,0.0)
+var array<float> officialBrecha = array.new_float(372,0.0)
+var array<float> officialConsensus = array.new_float(372,0.0)
+calendarLatestYear = year(last_bar_time,tz)
+calendarLatestMonth = month(last_bar_time,tz)
+calendarDesiredYear = calendarMonthMode == "Manual Month" ? calendarManualYear : calendarLatestYear
+calendarDesiredMonth = calendarMonthMode == "Manual Month" ? calendarManualMonth : calendarLatestMonth
+var int calendarTrackedYear = na
+if barstate.isfirst
+    calendarTrackedYear := calendarDesiredYear
+if calendarTrackedYear != calendarDesiredYear
+    calendarTrackedYear := calendarDesiredYear
+    for resetIndex = 0 to 371
+        array.set(scoutDays,resetIndex,false)
+        array.set(scoutDirections,resetIndex,0)
+        array.set(scoutTimes,resetIndex,-1)
+        array.set(scoutResults,resetIndex,CAL_NONE)
+        array.set(scoutPoints,resetIndex,0.0)
+        array.set(officialDays,resetIndex,false)
+        array.set(officialDirections,resetIndex,0)
+        array.set(officialTimes,resetIndex,-1)
+        array.set(officialResults,resetIndex,CAL_NONE)
+        array.set(officialPoints,resetIndex,0.0)
+        array.set(officialBrecha,resetIndex,0.0)
+        array.set(officialConsensus,resetIndex,0.0)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 17) SCOUT FREEZE
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+bool eventScoutFreeze = false
+bool eventScoutTouch = false
+bool eventScoutWin = false
+bool eventScoutLoss = false
+bool eventScoutAmbiguous = false
+bool eventScoutNoEntry = false
+bool eventScoutInvalid = false
+bool eventScoutExpired = false
+scoutBaseSafety = inDist and rawSide != 0 and hasManipRange and not contextInvalidated and rawRiskMapValid and rawEntryInsideGap and not rawTimingPaid and rawMovementProgress <= presetScoutMaxProgress
+scoutEvidencePass = (not scoutRequireIntent or rawIntentOK) and (not scoutRequireStrongCandle or rawScoutCandleOK) and (not scoutRequireRoom or rawScoutRoomOK)
+scoutFreezeReady = useScoutFreeze and scoutBaseSafety and scoutEvidencePass and barstate.isconfirmed and (not onlyTradeDistribution or inDist) and (not oneScoutPerDistribution or not scoutCreatedThisDistribution)
+if scoutFreezeReady and scout.id == 0
+    scout.id := nextScoutId
+    nextScoutId += 1
+    scout.side := rawSide
+    scout.state := "FROZEN"
+    scout.entry := rawEntry
+    scout.target := rawTarget
+    scout.stop := rawStop
+    scout.step := rawStep
+    scout.gapLow := rawGapLow
+    scout.gapHigh := rawGapHigh
+    scout.freezeBar := bar_index
+    scout.touchBar := na
+    scout.activeBar := na
+    scout.expiryBar := presetScoutExpirationBars > 0 ? bar_index+presetScoutExpirationBars : na
+    scout.freezeTime := time
+    scout.reason := "SCOUT FROZEN · WAIT OFFICIAL CONFIRMATION"
+    scout.result := "PENDING"
+    scoutCreatedThisDistribution := true
+    int sy = year(time,tz)
+    int sm = month(time,tz)
+    int sd = dayofmonth(time,tz)
+    int sidx = sy == calendarTrackedYear ? (sm-1)*31+sd-1 : -1
+    scout.ledgerIndex := sidx
+    if sidx >= 0 and sidx <= 371
+        array.set(scoutDays,sidx,true)
+        array.set(scoutDirections,sidx,scout.side)
+        array.set(scoutTimes,sidx,hour(time,tz)*60+minute(time,tz))
+        array.set(scoutResults,sidx,CAL_ARMED)
+        array.set(scoutPoints,sidx,0.0)
+    eventScoutFreeze := true
+
+// Evaluation levels become frozen Scout values as soon as Scout exists.
+evalSide = scout.id > 0 ? scout.side : rawSide
+evalEntry = scout.id > 0 ? scout.entry : rawEntry
+evalTarget = scout.id > 0 ? scout.target : rawTarget
+evalStop = scout.id > 0 ? scout.stop : rawStop
+evalStep = scout.id > 0 ? scout.step : rawStep
+evalGapLow = scout.id > 0 ? scout.gapLow : rawGapLow
+evalGapHigh = scout.id > 0 ? scout.gapHigh : rawGapHigh
+evalGapMid = not na(evalGapLow) and not na(evalGapHigh) ? (evalGapLow+evalGapHigh)/2.0 : na
+evalEntryInsideGap = not na(evalEntry) and not na(evalGapLow) and not na(evalGapHigh) and evalEntry >= evalGapLow-math.max(syminfo.mintick*2.0,nz(evalStep,syminfo.mintick)*0.08) and evalEntry <= evalGapHigh+math.max(syminfo.mintick*2.0,nz(evalStep,syminfo.mintick)*0.08)
+evalRiskMapValid = evalSide != 0 and not na(evalEntry) and not na(evalTarget) and not na(evalStop) and (evalSide == 1 ? evalTarget > evalEntry and evalStop < evalEntry : evalTarget < evalEntry and evalStop > evalEntry)
+evalMovementProgress = hasManipRange and evalSide != 0 ? f_clamp(evalSide == 1 ? (close-manipLow)/ladderRange*100.0 : (manipHigh-close)/ladderRange*100.0,0.0,150.0) : 0.0
+evalTimingPaid = evalMovementProgress >= presetPaidProgress or (evalSide == 1 and close >= evalTarget) or (evalSide == -1 and close <= evalTarget)
+evalTimingLate = not evalTimingPaid and evalMovementProgress >= presetLateProgress
+evalIntentOK = evalSide == 1 ? bullIntent : evalSide == -1 ? bearIntent : false
+evalCloseStrength = rng > 0 ? (evalSide == 1 ? (close-low)/rng*100.0 : evalSide == -1 ? (high-close)/rng*100.0 : 0.0) : 0.0
+armedDirectionOK = evalSide == 1 ? close > open : evalSide == -1 ? close < open : false
+armedBodyOK = bodyPct >= presetBodyMin
+armedCloseOK = evalCloseStrength >= presetCloseStrengthMin
+wickBalanceOK = evalSide == 1 ? upperWickPct <= 30.0 : evalSide == -1 ? lowerWickPct <= 30.0 : false
+expansionQualityOK = rng > ta.sma(rng,3) and bodyPct >= math.max(40.0,presetBodyMin-10.0)
+priorHigh = ta.highest(high[1],presetStructureLookback)
+priorLow = ta.lowest(low[1],presetStructureLookback)
+bullStructureNow = inDist and barstate.isconfirmed and close > priorHigh+structureBuffer and low >= low[1]
+bearStructureNow = inDist and barstate.isconfirmed and close < priorLow-structureBuffer and high <= high[1]
+bullStructureBars = ta.barssince(bullStructureNow)
+bearStructureBars = ta.barssince(bearStructureNow)
+bullStructureRecent = not na(bullStructureBars) and bullStructureBars <= presetStructureMemory
+bearStructureRecent = not na(bearStructureBars) and bearStructureBars <= presetStructureMemory
+structureOK = evalSide == 1 ? bullStructureRecent : evalSide == -1 ? bearStructureRecent : false
+microBOSNow = evalSide == 1 ? bullStructureNow : evalSide == -1 ? bearStructureNow : false
+higherLowLowerHighOK = evalSide == 1 ? low > low[2] : evalSide == -1 ? high < high[2] : false
+oppositeStructureFailureOK = evalSide == 1 ? not bearStructureRecent : evalSide == -1 ? not bullStructureRecent : false
+pullbackStructureIntegrityOK = evalSide == 1 ? low >= ta.lowest(low[1],3) or close > close[1] : evalSide == -1 ? high <= ta.highest(high[1],3) or close < close[1] : false
+rollingSweepLow = ta.lowest(low,5)
+rollingSweepHigh = ta.highest(high,5)
+buySweepSeen = evalSide == 1 and rollingSweepLow < evalEntry-structureBuffer
+sellSweepSeen = evalSide == -1 and rollingSweepHigh > evalEntry+structureBuffer
+sweepSeen = evalSide == 1 ? buySweepSeen : evalSide == -1 ? sellSweepSeen : false
+reclaimEvent = evalSide == 1 ? buySweepSeen and close > evalEntry+reclaimBuffer : evalSide == -1 ? sellSweepSeen and close < evalEntry-reclaimBuffer : false
+buyBreakRaw = ta.crossover(close,nz(evalEntry+structureBuffer,close))
+sellBreakRaw = ta.crossunder(close,nz(evalEntry-structureBuffer,close))
+buyBreakBars = ta.barssince(evalSide == 1 and buyBreakRaw)
+sellBreakBars = ta.barssince(evalSide == -1 and sellBreakRaw)
+breakRecent = evalSide == 1 ? not na(buyBreakBars) and buyBreakBars <= 4 : evalSide == -1 ? not na(sellBreakBars) and sellBreakBars <= 4 : false
+breakHold = evalSide == 1 ? breakRecent and close > evalEntry+structureBuffer and (armedBodyOK or bullIntent) : evalSide == -1 ? breakRecent and close < evalEntry-structureBuffer and (armedBodyOK or bearIntent) : false
+levelEventOK = reclaimEvent or breakHold
+wickRejectionOK = evalSide == 1 ? lowerWickPct > upperWickPct*1.20 and close > open : evalSide == -1 ? upperWickPct > lowerWickPct*1.20 and close < open : false
+triggerBuilding = sweepSeen or breakRecent or evalIntentOK
+directionalBodySeries = evalSide == 1 ? (close > open ? body : 0.0) : evalSide == -1 ? (close < open ? body : 0.0) : 0.0
+oppositeBodySeries = evalSide == 1 ? (close < open ? body : 0.0) : evalSide == -1 ? (close > open ? body : 0.0) : 0.0
+directionalBodyAvg = ta.sma(directionalBodySeries,3)
+oppositeBodyAvg = ta.sma(oppositeBodySeries,3)
+weakOppositeBodyOK = nz(oppositeBodyAvg,0.0) <= math.max(nz(directionalBodyAvg,body)*0.70,syminfo.mintick)
+controlledRetracementOK = not na(evalStep) and math.abs(close-evalEntry) <= evalStep*0.80
+bodyOverlap = math.max(0.0,math.min(math.max(open,close),math.max(open[1],close[1]))-math.max(math.min(open,close),math.min(open[1],close[1])))
+lowOverlapOK = body > 0 and bodyOverlap <= body*0.50
+noOppositeEngulfingOK = evalSide == 1 ? not isBearEngulf : evalSide == -1 ? not isBullEngulf : false
+healthyPullbackDurationOK = math.min(nz(buyBreakBars,99),nz(sellBreakBars,99)) <= 5 or structureOK
+structureLow = ta.lowest(low,5)
+structureHigh = ta.highest(high,5)
+structuralSLOK = evalSide == 1 ? evalStop <= structureLow-structureBuffer : evalSide == -1 ? evalStop >= structureHigh+structureBuffer : false
+stopBeyondWickClusterOK = evalSide == 1 ? evalStop <= ta.lowest(low,3) : evalSide == -1 ? evalStop >= ta.highest(high,3) : false
+stopOutsideATROK = not na(evalStep) and evalStep*slSteps >= atr*0.50
+stopOutsideArmedBodyOK = evalSide == 1 ? evalStop < low : evalSide == -1 ? evalStop > high : false
+stopProtectedByLevelOK = evalSide == 1 ? evalStop < evalGapLow : evalSide == -1 ? evalStop > evalGapHigh : false
+evalRoomDistance = evalSide == 1 ? evalTarget-close : evalSide == -1 ? close-evalTarget : na
+evalRewardDistance = math.abs(evalTarget-evalEntry)
+evalRoomPct = evalRewardDistance > 0 ? f_clamp(evalRoomDistance/evalRewardDistance*100.0,0.0,150.0) : 0.0
+clearPathToTPOK = evalRoomPct >= presetMinRoomPct and not evalTimingPaid
+noLiquidityWallOK = evalSide == 1 ? na(priorHigh) or evalTarget <= priorHigh+evalStep*0.20 : evalSide == -1 ? na(priorLow) or evalTarget >= priorLow-evalStep*0.20 : false
+tpBeforeSessionBoundaryOK = hour(time,tz) < 12 or (hour(time,tz) == 12 and minute(time,tz) <= 30)
+tpOutsideCongestionOK = evalSide == 1 ? evalTarget > ta.highest(close,3) : evalSide == -1 ? evalTarget < ta.lowest(close,3) : false
+tpNextLiquidityOK = evalSide == 1 ? evalTarget <= distRangeHigh+evalStep*2.0 : evalSide == -1 ? evalTarget >= distRangeLow-evalStep*2.0 : false
+bodyATR = atr > 0 ? body/atr : na
+stepATR = atr > 0 and not na(evalStep) ? evalStep/atr : na
+bodyATRQualityOK = not na(bodyATR) and bodyATR >= 0.20 and bodyATR <= 1.80
+stepATRQualityOK = not na(stepATR) and stepATR <= 3.0
+noAbnormalSpikeOK = atr > 0 and rng <= atr*2.25
+compressionBeforeExpansionOK = ta.sma(rng[1],3) < atr and rng > ta.sma(rng[1],3)*1.10
+stableDistributionRangeOK = atr > 0 and hasManipRange and ladderRange/atr >= 0.50 and ladderRange/atr <= 6.0
+earlyProgressOK = evalMovementProgress <= 45.0
+setupFreshnessOK = math.min(nz(buyBreakBars,99),nz(sellBreakBars,99)) <= 3 or (evalSide == 1 ? nz(bullStructureBars,99) <= 3 : nz(bearStructureBars,99) <= 3)
+notPaidOK = not evalTimingPaid
+notLateOK = not evalTimingLate and not evalTimingPaid
+onePlanAvailableOK = not onePlanPerDistribution or not officialCreatedThisDistribution
+noOppositeShiftOK = evalSide == 1 ? not bearStructureNow : evalSide == -1 ? not bullStructureNow : false
+noOppositePatternOK = evalSide == 1 ? not currentBearPattern : evalSide == -1 ? not currentBullPattern : false
+directionRemainsValidOK = not contextInvalidated and evalSide != 0 and evalSide == lockedDirection
+triggerLevelValidOK = levelEventOK or triggerBuilding
+planIntactBeforeEntryOK = evalEntryInsideGap and structuralSLOK and not evalTimingLate and not evalTimingPaid and not contextInvalidated
+premiumDiscountOK = evalSide == 1 ? evalEntry <= evalGapMid : evalSide == -1 ? evalEntry >= evalGapMid : false
+outsideCongestionOK = ta.stdev(close,5) > syminfo.mintick*2.0
+imbalanceAlignedOK = levelEventOK and armedDirectionOK and armedBodyOK
+notOverextendedOK = evalMovementProgress <= presetMaxProgress
+beforeArmPatternOK = evalSide == 1 ? bullPatternRecent : evalSide == -1 ? bearPatternRecent : false
+trendAgreementOK = evalSide == 1 ? supertrendBull and localEMA20 >= localEMA50 : evalSide == -1 ? supertrendBear and localEMA20 <= localEMA50 : false
+scoutEntryTouchedNow = scout.id > 0 and scout.state == "FROZEN" and bar_index > nz(scout.freezeBar,bar_index) and (scout.side == 1 ? low <= scout.entry+entryTolerance : high >= scout.entry-entryTolerance)
+entryUntouchedNow = scout.id > 0 ? scout.state == "FROZEN" and not scoutEntryTouchedNow : false
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 18) BRECHA AUTHORITY
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+bA01 = profileCustom ? b01 : false
+bA02 = profileCustom ? b02 : profilePrecision
+bA03 = profileCustom ? b03 : true
+bA04 = profileCustom ? b04 : false
+bA05 = profileCustom ? b05 : false
+bA06 = profileCustom ? b06 : true
+bA07 = profileCustom ? b07 : true
+bA08 = profileCustom ? b08 : not profileProfit
+bA09 = profileCustom ? b09 : false
+bA10 = profileCustom ? b10 : profilePrecision
+bA11 = profileCustom ? b11 : true
+bA12 = profileCustom ? b12 : profilePrecision
+bA13 = profileCustom ? b13 : false
+bA14 = profileCustom ? b14 : false
+bA15 = profileCustom ? b15 : false
+bA16 = profileCustom ? b16 : true
+bA17 = profileCustom ? b17 : profilePrecision
+bA18 = profileCustom ? b18 : profileProfit
+bA19 = profileCustom ? b19 : false
+bA20 = profileCustom ? b20 : false
+bA21 = profileCustom ? b21 : not profileProfit
+bA22 = profileCustom ? b22 : false
+bA23 = profileCustom ? b23 : false
+bA24 = profileCustom ? b24 : false
+bA25 = profileCustom ? b25 : false
+bA26 = profileCustom ? b26 : not profileProfit
+bA27 = profileCustom ? b27 : false
+bA28 = profileCustom ? b28 : profilePrecision
+bA29 = profileCustom ? b29 : false
+bA30 = profileCustom ? b30 : false
+bA31 = profileCustom ? b31 : not profileProfit
+bA32 = profileCustom ? b32 : false
+bA33 = profileCustom ? b33 : false
+bA34 = profileCustom ? b34 : false
+bA35 = profileCustom ? b35 : false
+bA36 = profileCustom ? b36 : profilePrecision
+bA37 = profileCustom ? b37 : false
+bA38 = profileCustom ? b38 : false
+bA39 = profileCustom ? b39 : false
+bA40 = profileCustom ? b40 : false
+bA41 = profileCustom ? b41 : true
+bA42 = profileCustom ? b42 : profilePrecision
+bA43 = profileCustom ? b43 : true
+bA44 = profileCustom ? b44 : profilePrecision
+bA45 = profileCustom ? b45 : false
+bA46 = profileCustom ? b46 : profilePrecision
+bA47 = profileCustom ? b47 : false
+bA48 = profileCustom ? b48 : not profileProfit
+bA49 = profileCustom ? b49 : false
+bA50 = profileCustom ? b50 : profilePrecision
+array<bool> bEnabled = array.from(bA01,bA02,bA03,bA04,bA05,bA06,bA07,bA08,bA09,bA10,bA11,bA12,bA13,bA14,bA15,bA16,bA17,bA18,bA19,bA20,bA21,bA22,bA23,bA24,bA25,bA26,bA27,bA28,bA29,bA30,bA31,bA32,bA33,bA34,bA35,bA36,bA37,bA38,bA39,bA40,bA41,bA42,bA43,bA44,bA45,bA46,bA47,bA48,bA49,bA50)
+array<bool> bPassed = array.from(sweepSeen,reclaimEvent,levelEventOK,breakHold,wickRejectionOK,armedDirectionOK,armedBodyOK,armedCloseOK,wickBalanceOK,expansionQualityOK,structureOK,higherLowLowerHighOK,microBOSNow,oppositeStructureFailureOK,pullbackStructureIntegrityOK,evalEntryInsideGap,premiumDiscountOK,notOverextendedOK,outsideCongestionOK,imbalanceAlignedOK,weakOppositeBodyOK,controlledRetracementOK,lowOverlapOK,noOppositeEngulfingOK,healthyPullbackDurationOK,structuralSLOK,stopBeyondWickClusterOK,stopOutsideATROK,stopOutsideArmedBodyOK,stopProtectedByLevelOK,clearPathToTPOK,noLiquidityWallOK,tpBeforeSessionBoundaryOK,tpOutsideCongestionOK,tpNextLiquidityOK,bodyATRQualityOK,stepATRQualityOK,noAbnormalSpikeOK,compressionBeforeExpansionOK,stableDistributionRangeOK,earlyProgressOK,setupFreshnessOK,notPaidOK,notLateOK,onePlanAvailableOK,noOppositeShiftOK,noOppositePatternOK,directionRemainsValidOK,triggerLevelValidOK,planIntactBeforeEntryOK)
+
+f_authority(array<bool> enabled,array<bool> passed,string engineName) =>
+    int enabledCount = 0
+    int passedCount = 0
+    int categoriesActive = 0
+    int categoriesPassed = 0
+    float categoryAuthorityTotal = 0.0
+    string categoryText = ""
+    string firstMissing = "ALL ACTIVE RECRUITS PASSED"
+    for categoryIndex = 0 to 9
+        int categoryEnabled = 0
+        int categoryPassed = 0
+        for slot = 0 to 4
+            int recruitIndex = categoryIndex*5+slot
+            bool en = array.get(enabled,recruitIndex)
+            bool pa = array.get(passed,recruitIndex)
+            if en
+                enabledCount += 1
+                categoryEnabled += 1
+                if pa
+                    passedCount += 1
+                    categoryPassed += 1
+                else if firstMissing == "ALL ACTIVE RECRUITS PASSED"
+                    firstMissing := (engineName == "BRECHA" ? "MISSING B" : "MISSING C") + str.tostring(recruitIndex+1,"00")
+        if categoryEnabled > 0
+            categoriesActive += 1
+            float categoryRatio = categoryPassed*1.0/categoryEnabled
+            bool categoryOK = categoryRatio >= 0.60
+            categoriesPassed += categoryOK ? 1 : 0
+            categoryAuthorityTotal += categoryRatio*100.0
+            string code = engineName == "BRECHA" ? (categoryIndex == 0 ? "TRG" : categoryIndex == 1 ? "CAN" : categoryIndex == 2 ? "STR" : categoryIndex == 3 ? "ENT" : categoryIndex == 4 ? "PB" : categoryIndex == 5 ? "SL" : categoryIndex == 6 ? "TP" : categoryIndex == 7 ? "VOL" : categoryIndex == 8 ? "TIM" : "INV") : (categoryIndex == 0 ? "DIR" : categoryIndex == 1 ? "XEN" : categoryIndex == 2 ? "HTF" : categoryIndex == 3 ? "REG" : categoryIndex == 4 ? "TIM" : categoryIndex == 5 ? "RSK" : categoryIndex == 6 ? "PRB" : categoryIndex == 7 ? "CNF" : categoryIndex == 8 ? "MAN" : "SRV")
+            categoryText += (categoryText == "" ? "" : " · ") + code + (categoryOK ? "✓" : "×")
+    float authority = categoriesActive > 0 ? categoryAuthorityTotal/categoriesActive : 0.0
+    [enabledCount,passedCount,authority,categoriesActive,categoriesPassed,categoryText,firstMissing]
+
+[brechaEnabledCount,brechaPassedCount,brechaAuthorityPct,brechaCategoriesActive,brechaCategoriesPassed,brechaCategoryText,brechaMissingText] = f_authority(bEnabled,bPassed,"BRECHA")
+brechaFoundationPass = (not bA03 or array.get(bPassed,2)) and (not bA06 or array.get(bPassed,5)) and (not bA11 or array.get(bPassed,10)) and (not bA16 or array.get(bPassed,15)) and (not bA26 or array.get(bPassed,25))
+brechaVetoPass = (not bA38 or array.get(bPassed,37)) and (not bA43 or array.get(bPassed,42)) and (not bA44 or array.get(bPassed,43)) and (not bA46 or array.get(bPassed,45)) and (not bA48 or array.get(bPassed,47)) and (not bA50 or array.get(bPassed,49))
+brechaQualified = inDist and scout.id > 0 and scout.state == "FROZEN" and brechaEnabledCount > 0 and brechaFoundationPass and brechaVetoPass and brechaAuthorityPct >= presetAuthorityMinBrecha and brechaCategoriesPassed >= math.min(presetCategoryQuorumBrecha,brechaCategoriesActive)
+brechaStatus = not useBrechaGate ? "GATE OFF" : brechaQualified ? "AUTHORIZED" : scout.id == 0 ? "WAIT SCOUT FREEZE" : contextInvalidated ? "CONTEXT INVALIDATED" : not brechaFoundationPass ? "FOUNDATION BLOCK" : not brechaVetoPass ? "ACTIVE VETO" : triggerBuilding ? "BUILDING " + f_side(evalSide) : "WAIT LOCAL EVIDENCE"
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 19) CONSENSUS AUTHORITY
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+consensusDirectionMatch = evalSide != 0 and evalSide == lockedDirection
+consensusPredictorEdgeOK = officialPredictorEdge >= presetPredictorEdge
+consensusComboEdgeOK = evalSide == 1 ? signedCombo >= presetComboEdge : evalSide == -1 ? signedCombo <= -presetComboEdge : false
+consensusAMDYellowAgreementOK = accYQualified and manipYQualified and accYDir == evalSide and manipYDir == evalSide
+consensusPsychBiasOK = evalSide == 1 ? officialBullScore > officialBearScore : evalSide == -1 ? officialBearScore > officialBullScore : false
+consensusBrechaLadderOK = brechaQualified and evalEntryInsideGap
+consensusBrechaPsychOK = brechaQualified and consensusPsychBiasOK
+consensusPatternOK = beforeArmPatternOK
+consensusTrendOK = trendAgreementOK
+consensusFinalActionOK = brechaQualified and evalRiskMapValid and not evalTimingLate and not evalTimingPaid
+consensusHTFDirectionOK = not useHTFContext or (evalSide == 1 ? htfEMA20 > htfEMA50 : evalSide == -1 ? htfEMA20 < htfEMA50 : false)
+consensusHTFStructureOK = not useHTFContext or (evalSide == 1 ? htfClose > htfEMA20 and htfRSI >= 50.0 : evalSide == -1 ? htfClose < htfEMA20 and htfRSI <= 50.0 : false)
+consensusHTFLiquidityOK = not useHTFContext or (evalSide == 1 ? htfClose < htfHigh20 : evalSide == -1 ? htfClose > htfLow20 : false)
+consensusHTFStrengthOK = not useHTFContext or (not na(htfATR) and htfATR > 0 and math.abs(htfEMA20-htfEMA50)/htfATR >= 0.25)
+consensusLTFTriggerOK = levelEventOK and armedDirectionOK
+consensusTrendRegimeOK = localADX >= presetADXMin and (evalSide == 1 ? localDIPlus > localDIMinus : evalSide == -1 ? localDIMinus > localDIPlus : false)
+consensusNoChopOK = localADX >= presetADXMin
+consensusVolatilityRegimeOK = atr > 0 and atr/ta.sma(atr,20) >= 0.65 and atr/ta.sma(atr,20) <= 1.80
+consensusExpansionRegimeOK = expansionQualityOK
+consensusNoMeanReversionConflictOK = evalSide == 1 ? close <= localEMA20+atr*2.0 : evalSide == -1 ? close >= localEMA20-atr*2.0 : false
+consensusSessionPhaseOK = inDist and not evalTimingLate and not evalTimingPaid and evalMovementProgress <= presetMaxProgress
+consensusLeadOK = evalMovementProgress <= 60.0 and not evalTimingLate
+consensusFreshnessOK = setupFreshnessOK
+consensusExpirationOK = scout.id > 0 and (na(scout.expiryBar) or bar_index <= scout.expiryBar)
+consensusSLEfficiencyOK = slSteps*1.0/math.max(tpSteps,1) <= 2.5
+consensusTPObstacleOK = clearPathToTPOK and (noLiquidityWallOK or tpNextLiquidityOK)
+consensusSameBarRiskOK = not na(evalStep) and rng < evalStep*math.max(tpSteps,slSteps)
+consensusGapThroughRiskOK = not na(evalEntry) and not na(evalStep) and math.abs(close-evalEntry) <= evalStep*1.25
+consensusStrongPredictorOK = consensusPredictorEdgeOK and officialPredictorEdge >= presetPredictorEdge*1.50
+consensusStrongComboOK = consensusComboEdgeOK and comboAbs >= presetComboEdge*1.50
+consensusSessionProbabilityOK = evalMovementProgress >= 10.0 and evalMovementProgress <= 55.0
+consensusRegimeProbabilityOK = consensusTrendRegimeOK and consensusHTFDirectionOK
+consensusEntryDepthOK = entryModel == "Mid-Body 50%" ? evalEntryInsideGap : premiumDiscountOK
+consensusNoDirectionConflictOK = consensusDirectionMatch and not dualYellowConflict
+consensusNoContextConflictOK = not bothAccumSweeps and not contextInvalidated
+consensusNoPatternConflictOK = noOppositePatternOK
+consensusNoVolatilityConflictOK = noAbnormalSpikeOK and stepATRQualityOK
+consensusNoTimingConflictOK = not evalTimingLate and not evalTimingPaid
+consensusDualYellowStrengthOK = consensusAMDYellowAgreementOK
+consensusFalseBalanceOK = balanceContext and manipYQualified and manipYDir == evalSide
+consensusSilentEdgeOK = silentAccum and silentManip and manipYDir == evalSide
+consensusTrapProbabilityOK = not bothAccumSweeps and largestManipWickDir == evalSide
+consensusAsymmetryOK = math.abs(nz(accumOverall,0.0)-nz(manipOverall,0.0)) >= 8.0 and (evalSide == 1 ? signedCombo > 0 : evalSide == -1 ? signedCombo < 0 : false)
+consensusPlanStillQualifiedOK = brechaQualified and evalRiskMapValid
+consensusNoOppAuthoritySurgeOK = evalSide == 1 ? signedCombo >= -presetComboEdge and officialBullScore >= officialBearScore : evalSide == -1 ? signedCombo <= presetComboEdge and officialBearScore >= officialBullScore : false
+consensusEntryDistanceOK = not na(evalEntry) and not na(evalStep) and math.abs(close-evalEntry) <= evalStep*1.50
+consensusNotStaleOK = not evalTimingLate and not evalTimingPaid and evalMovementProgress <= presetMaxProgress
+cA01 = profileCustom ? c01 : not profileProfit
+cA02 = profileCustom ? c02 : not profileProfit
+cA03 = profileCustom ? c03 : profilePrecision
+cA04 = profileCustom ? c04 : profilePrecision
+cA05 = profileCustom ? c05 : false
+cA06 = profileCustom ? c06 : not profileProfit
+cA07 = profileCustom ? c07 : false
+cA08 = profileCustom ? c08 : false
+cA09 = profileCustom ? c09 : false
+cA10 = profileCustom ? c10 : profilePrecision
+cA11 = profileCustom ? c11 : profilePrecision
+cA12 = profileCustom ? c12 : false
+cA13 = profileCustom ? c13 : false
+cA14 = profileCustom ? c14 : false
+cA15 = profileCustom ? c15 : false
+cA16 = profileCustom ? c16 : profilePrecision
+cA17 = profileCustom ? c17 : false
+cA18 = profileCustom ? c18 : false
+cA19 = profileCustom ? c19 : false
+cA20 = profileCustom ? c20 : false
+cA21 = profileCustom ? c21 : not profileProfit
+cA22 = profileCustom ? c22 : false
+cA23 = profileCustom ? c23 : not profileProfit
+cA24 = profileCustom ? c24 : false
+cA25 = profileCustom ? c25 : false
+cA26 = profileCustom ? c26 : profilePrecision
+cA27 = profileCustom ? c27 : false
+cA28 = profileCustom ? c28 : false
+cA29 = profileCustom ? c29 : false
+cA30 = profileCustom ? c30 : false
+cA31 = profileCustom ? c31 : false
+cA32 = profileCustom ? c32 : false
+cA33 = profileCustom ? c33 : false
+cA34 = profileCustom ? c34 : false
+cA35 = profileCustom ? c35 : false
+cA36 = profileCustom ? c36 : not profileProfit
+cA37 = profileCustom ? c37 : profilePrecision
+cA38 = profileCustom ? c38 : false
+cA39 = profileCustom ? c39 : false
+cA40 = profileCustom ? c40 : profilePrecision
+cA41 = profileCustom ? c41 : profilePrecision
+cA42 = profileCustom ? c42 : false
+cA43 = profileCustom ? c43 : false
+cA44 = profileCustom ? c44 : false
+cA45 = profileCustom ? c45 : false
+cA46 = profileCustom ? c46 : profilePrecision
+cA47 = profileCustom ? c47 : profilePrecision
+cA48 = profileCustom ? c48 : false
+cA49 = profileCustom ? c49 : false
+cA50 = profileCustom ? c50 : profilePrecision
+array<bool> cEnabled = array.from(cA01,cA02,cA03,cA04,cA05,cA06,cA07,cA08,cA09,cA10,cA11,cA12,cA13,cA14,cA15,cA16,cA17,cA18,cA19,cA20,cA21,cA22,cA23,cA24,cA25,cA26,cA27,cA28,cA29,cA30,cA31,cA32,cA33,cA34,cA35,cA36,cA37,cA38,cA39,cA40,cA41,cA42,cA43,cA44,cA45,cA46,cA47,cA48,cA49,cA50)
+array<bool> cPassed = array.from(consensusDirectionMatch,consensusPredictorEdgeOK,consensusComboEdgeOK,consensusAMDYellowAgreementOK,consensusPsychBiasOK,consensusBrechaLadderOK,consensusBrechaPsychOK,consensusPatternOK,consensusTrendOK,consensusFinalActionOK,consensusHTFDirectionOK,consensusHTFStructureOK,consensusHTFLiquidityOK,consensusHTFStrengthOK,consensusLTFTriggerOK,consensusTrendRegimeOK,consensusNoChopOK,consensusVolatilityRegimeOK,consensusExpansionRegimeOK,consensusNoMeanReversionConflictOK,consensusSessionPhaseOK,consensusLeadOK,entryUntouchedNow,consensusFreshnessOK,consensusExpirationOK,evalRiskMapValid and clearPathToTPOK,consensusSLEfficiencyOK,consensusTPObstacleOK,consensusSameBarRiskOK,consensusGapThroughRiskOK,consensusStrongPredictorOK,consensusStrongComboOK,consensusSessionProbabilityOK,consensusRegimeProbabilityOK,consensusEntryDepthOK,consensusNoDirectionConflictOK,consensusNoContextConflictOK,consensusNoPatternConflictOK,consensusNoVolatilityConflictOK,consensusNoTimingConflictOK,consensusDualYellowStrengthOK,consensusFalseBalanceOK,consensusSilentEdgeOK,consensusTrapProbabilityOK,consensusAsymmetryOK,not contextInvalidated,consensusPlanStillQualifiedOK,consensusNoOppAuthoritySurgeOK,consensusEntryDistanceOK,consensusNotStaleOK)
+[consensusEnabledCount,consensusPassedCount,consensusAuthorityPct,consensusCategoriesActive,consensusCategoriesPassed,consensusCategoryText,consensusMissingText] = f_authority(cEnabled,cPassed,"CONSENSUS")
+consensusFoundationPass = (not cA01 or array.get(cPassed,0)) and (not cA23 or array.get(cPassed,22)) and (not cA26 or array.get(cPassed,25))
+consensusVetoPass = (not cA17 or array.get(cPassed,16)) and (not cA29 or array.get(cPassed,28)) and (not cA36 or array.get(cPassed,35)) and (not cA40 or array.get(cPassed,39)) and (not cA46 or array.get(cPassed,45)) and (not cA50 or array.get(cPassed,49))
+consensusQualified = consensusEnabledCount > 0 and consensusFoundationPass and consensusVetoPass and consensusAuthorityPct >= presetAuthorityMinConsensus and consensusCategoriesPassed >= math.min(presetCategoryQuorumConsensus,consensusCategoriesActive)
+consensusGatePass = not useConsensusVeto or not consensusRequiredByProfile or consensusQualified
+consensusStatus = not useConsensusVeto ? "VETO OFF" : consensusEnabledCount == 0 ? "PROFILE DOES NOT REQUIRE" : consensusQualified ? "CONFIRMED" : not consensusFoundationPass ? "FOUNDATION BLOCK" : not consensusVetoPass ? "ACTIVE VETO" : "WAIT CROSS-ENGINE EVIDENCE"
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 20) OFFICIAL PROMOTION — SAME SCOUT, SAME LEVELS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+bool eventOfficialArm = false
+bool eventOfficialTouch = false
+bool eventOfficialActive = false
+bool eventOfficialWin = false
+bool eventOfficialLoss = false
+bool eventOfficialAmbiguous = false
+bool eventOfficialNoEntry = false
+bool eventOfficialInvalid = false
+bool eventOfficialExpired = false
+bool eventOfficialLate = false
+brechaGatePass = not useBrechaGate or brechaQualified
+officialArmSafety = inDist and scout.id > 0 and scout.state == "FROZEN" and not scoutEntryTouchedNow and not contextInvalidated and evalRiskMapValid and evalEntryInsideGap and (not blockPaidPlans or not evalTimingPaid) and (not blockLatePlans or not evalTimingLate)
+officialArmReady = officialArmSafety and brechaGatePass and consensusGatePass and barstate.isconfirmed and (not onlyTradeDistribution or inDist) and (not onePlanPerDistribution or not officialCreatedThisDistribution)
+if officialArmReady and official.id == 0
+    official.id := nextOfficialId
+    nextOfficialId += 1
+    official.scoutId := scout.id
+    official.side := scout.side
+    official.state := "ARMED"
+    official.source := consensusRequiredByProfile ? "SCOUT + BRECHA + CONSENSUS" : "SCOUT + BRECHA"
+    official.entry := scout.entry
+    official.target := scout.target
+    official.stop := scout.stop
+    official.step := scout.step
+    official.armBar := bar_index
+    official.expiryBar := math.min(nz(scout.expiryBar,bar_index+presetOfficialExpirationBars),bar_index+presetOfficialExpirationBars)
+    official.armTime := time
+    official.brechaAuthority := brechaAuthorityPct
+    official.consensusAuthority := consensusAuthorityPct
+    official.reason := "SAME SCOUT PROMOTED · WAIT ENTRY + ACCEPTANCE"
+    official.result := "PENDING"
+    officialCreatedThisDistribution := true
+    official.ledgerIndex := scout.ledgerIndex
+    if official.ledgerIndex >= 0 and official.ledgerIndex <= 371
+        array.set(officialDays,official.ledgerIndex,true)
+        array.set(officialDirections,official.ledgerIndex,official.side)
+        array.set(officialTimes,official.ledgerIndex,hour(time,tz)*60+minute(time,tz))
+        array.set(officialResults,official.ledgerIndex,CAL_ARMED)
+        array.set(officialPoints,official.ledgerIndex,0.0)
+        array.set(officialBrecha,official.ledgerIndex,official.brechaAuthority)
+        array.set(officialConsensus,official.ledgerIndex,official.consensusAuthority)
+    eventOfficialArm := true
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 21) SCOUT + OFFICIAL STATE MACHINES
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+var int officialAcceptanceCount = 0
+if distStart
+    officialAcceptanceCount := 0
+scoutTargetTouched = scout.id > 0 and (scout.side == 1 ? high >= scout.target : low <= scout.target)
+scoutStopTouched = scout.id > 0 and (scout.side == 1 ? low <= scout.stop : high >= scout.stop)
+scoutLeadReady = not scoutEntryStartsNextBar or bar_index > nz(scout.freezeBar,bar_index)
+scoutExpiredNow = scout.state == "FROZEN" and not na(scout.expiryBar) and bar_index > scout.expiryBar
+if scout.state == "FROZEN" and bar_index > nz(scout.freezeBar,bar_index-1)
+    if scoutCancelOnInvalidation and contextInvalidated
+        scout.state := "INVALIDATED"
+        scout.reason := "CONTEXT INVALIDATED BEFORE SCOUT ENTRY"
+        scout.result := "NO TRADE"
+        eventScoutInvalid := true
+    else if scoutExpiredNow
+        scout.state := "EXPIRED"
+        scout.reason := "SCOUT ENTRY WINDOW EXPIRED"
+        scout.result := "NO ENTRY"
+        eventScoutExpired := true
+    else if scoutTargetTouched and not scoutEntryTouchedNow
+        scout.state := "NO ENTRY"
+        scout.reason := "TARGET REACHED BEFORE SCOUT ENTRY"
+        scout.result := "NO ENTRY"
+        eventScoutNoEntry := true
+    else if scoutEntryTouchedNow and scoutLeadReady and trackScoutResults
+        scout.touchBar := bar_index
+        scout.activeBar := bar_index
+        eventScoutTouch := true
+        if scoutTargetTouched or scoutStopTouched
+            if sameBarPolicy == "Conservative Loss"
+                scout.state := "LOSS"
+                scout.reason := "SCOUT ENTRY + EXIT SAME BAR · LOSS"
+                scout.result := "LOSS"
+                eventScoutLoss := true
+            else
+                scout.state := "AMBIGUOUS"
+                scout.reason := "SCOUT ENTRY + TP/SL SAME BAR · UNKNOWN ORDER"
+                scout.result := "AMBIGUOUS"
+                eventScoutAmbiguous := true
+        else
+            scout.state := "ACTIVE"
+            scout.reason := "EARLY SCOUT ENTRY ACTIVE"
+            scout.result := "ACTIVE"
+        if official.id == 0 and not officialLateRecordedThisDistribution
+            officialLateRecordedThisDistribution := true
+            eventOfficialLate := true
+            if scout.ledgerIndex >= 0 and scout.ledgerIndex <= 371
+                array.set(officialDays,scout.ledgerIndex,true)
+                array.set(officialDirections,scout.ledgerIndex,scout.side)
+                array.set(officialTimes,scout.ledgerIndex,hour(time,tz)*60+minute(time,tz))
+                array.set(officialResults,scout.ledgerIndex,CAL_LATE)
+                array.set(officialPoints,scout.ledgerIndex,0.0)
+if scout.state == "ACTIVE" and bar_index > nz(scout.activeBar,bar_index)
+    if scoutTargetTouched and scoutStopTouched
+        if sameBarPolicy == "Conservative Loss"
+            scout.state := "LOSS"
+            scout.reason := "SCOUT TP + SL SAME BAR · LOSS"
+            scout.result := "LOSS"
+            eventScoutLoss := true
+        else
+            scout.state := "AMBIGUOUS"
+            scout.reason := "SCOUT TP + SL SAME BAR · UNKNOWN ORDER"
+            scout.result := "AMBIGUOUS"
+            eventScoutAmbiguous := true
+    else if scoutTargetTouched
+        scout.state := "WIN"
+        scout.reason := "SCOUT TP HIT"
+        scout.result := "WIN"
+        eventScoutWin := true
+    else if scoutStopTouched
+        scout.state := "LOSS"
+        scout.reason := "SCOUT SL HIT"
+        scout.result := "LOSS"
+        eventScoutLoss := true
+
+bool officialEntryTouched = f_official_pending(official.state) and (official.side == 1 ? low <= official.entry+entryTolerance : high >= official.entry-entryTolerance)
+bool officialTargetTouched = official.id > 0 and (official.side == 1 ? high >= official.target : low <= official.target)
+bool officialStopTouched = official.id > 0 and (official.side == 1 ? low <= official.stop : high >= official.stop)
+bool officialAcceptanceClose = official.side == 1 ? close > official.entry+reclaimBuffer and close > open and bodyPct >= presetBodyMin and (not requireCorrectCenterSide or close >= distCenter) : official.side == -1 ? close < official.entry-reclaimBuffer and close < open and bodyPct >= presetBodyMin and (not requireCorrectCenterSide or close <= distCenter) : false
+bool officialIntentOK = official.side == 1 ? bullIntent : official.side == -1 ? bearIntent : false
+if f_official_pending(official.state) and barstate.isconfirmed
+    officialAcceptanceCount := officialAcceptanceClose and officialIntentOK ? officialAcceptanceCount+1 : 0
+officialAcceptanceReady = not requireAcceptance or officialAcceptanceCount >= presetAcceptanceCloses
+officialLeadReady = not requireNextBarEntry or bar_index > nz(official.armBar,bar_index)
+officialExpiredNow = f_official_pending(official.state) and not na(official.expiryBar) and bar_index > official.expiryBar
+if official.state == "ARMED" and bar_index > nz(official.armBar,bar_index-1)
+    if cancelOnContextInvalidation and contextInvalidated
+        official.state := "INVALIDATED"
+        official.reason := "CONTEXT INVALIDATED · NO AUTO-REVERSAL"
+        official.result := "NO TRADE"
+        eventOfficialInvalid := true
+    else if officialExpiredNow
+        official.state := "EXPIRED"
+        official.reason := "OFFICIAL ENTRY WINDOW EXPIRED"
+        official.result := "NO ENTRY"
+        eventOfficialExpired := true
+    else if officialTargetTouched and not officialEntryTouched
+        official.state := "NO ENTRY"
+        official.reason := "TARGET REACHED BEFORE OFFICIAL ENTRY"
+        official.result := "NO ENTRY"
+        eventOfficialNoEntry := true
+    else if officialEntryTouched and officialLeadReady
+        official.touchBar := bar_index
+        eventOfficialTouch := true
+        if officialTargetTouched or officialStopTouched
+            if sameBarPolicy == "Conservative Loss"
+                official.state := "LOSS"
+                official.reason := "OFFICIAL ENTRY + EXIT SAME BAR · LOSS"
+                official.result := "LOSS"
+                eventOfficialLoss := true
+            else
+                official.state := "AMBIGUOUS"
+                official.reason := "OFFICIAL ENTRY + TP/SL SAME BAR · UNKNOWN ORDER"
+                official.result := "AMBIGUOUS"
+                eventOfficialAmbiguous := true
+        else if officialAcceptanceReady
+            official.state := "ACTIVE"
+            official.activeBar := bar_index
+            official.reason := "OFFICIAL TOUCH + ACCEPTANCE CONFIRMED"
+            official.result := "ACTIVE"
+            eventOfficialActive := true
+        else
+            official.state := "TOUCHED"
+            official.reason := "TOUCH IS NOT ENTRY · WAIT ACCEPTANCE"
+if official.state == "TOUCHED"
+    if cancelOnContextInvalidation and contextInvalidated
+        official.state := "INVALIDATED"
+        official.reason := "CONTEXT FAILED BEFORE ACCEPTANCE"
+        official.result := "NO TRADE"
+        eventOfficialInvalid := true
+    else if officialExpiredNow
+        official.state := "EXPIRED"
+        official.reason := "NO ACCEPTANCE BEFORE EXPIRATION"
+        official.result := "NO ENTRY"
+        eventOfficialExpired := true
+    else if officialTargetTouched
+        official.state := "NO ENTRY"
+        official.reason := "MOVE LEFT WITHOUT ACCEPTANCE"
+        official.result := "NO ENTRY"
+        eventOfficialNoEntry := true
+    else if officialAcceptanceReady and barstate.isconfirmed
+        official.state := "ACTIVE"
+        official.activeBar := bar_index
+        official.reason := "ACCEPTANCE CONFIRMED AFTER TOUCH"
+        official.result := "ACTIVE"
+        eventOfficialActive := true
+    else if bar_index-nz(official.touchBar,bar_index) > 2
+        official.state := "INVALIDATED"
+        official.reason := "TOUCH FAILED TO BUILD ACCEPTANCE"
+        official.result := "NO TRADE"
+        eventOfficialInvalid := true
+if official.state == "ACTIVE" and bar_index > nz(official.activeBar,bar_index)
+    if officialTargetTouched and officialStopTouched
+        if sameBarPolicy == "Conservative Loss"
+            official.state := "LOSS"
+            official.reason := "OFFICIAL TP + SL SAME BAR · LOSS"
+            official.result := "LOSS"
+            eventOfficialLoss := true
+        else
+            official.state := "AMBIGUOUS"
+            official.reason := "OFFICIAL TP + SL SAME BAR · UNKNOWN ORDER"
+            official.result := "AMBIGUOUS"
+            eventOfficialAmbiguous := true
+    else if officialTargetTouched
+        official.state := "WIN"
+        official.reason := "OFFICIAL TP HIT"
+        official.result := "WIN"
+        eventOfficialWin := true
+    else if officialStopTouched
+        official.state := "LOSS"
+        official.reason := "OFFICIAL SL HIT"
+        official.result := "LOSS"
+        eventOfficialLoss := true
+if distEnd
+    if scout.state == "FROZEN"
+        scout.state := "NO ENTRY"
+        scout.reason := "DISTRIBUTION ENDED BEFORE SCOUT ENTRY"
+        scout.result := "NO ENTRY"
+        eventScoutNoEntry := true
+    else if scout.state == "ACTIVE"
+        scout.state := "EXPIRED"
+        scout.reason := "DISTRIBUTION ENDED · SCOUT UNRESOLVED"
+        scout.result := "UNRESOLVED"
+        eventScoutExpired := true
+    if official.state == "ARMED" or official.state == "TOUCHED"
+        official.state := "NO ENTRY"
+        official.reason := "DISTRIBUTION ENDED BEFORE OFFICIAL ACTIVE ENTRY"
+        official.result := "NO ENTRY"
+        eventOfficialNoEntry := true
+    else if official.state == "ACTIVE"
+        official.state := "EXPIRED"
+        official.reason := "DISTRIBUTION ENDED · OFFICIAL UNRESOLVED"
+        official.result := "UNRESOLVED"
+        eventOfficialExpired := true
+
+// Ledger consumes Scout events.
+if scout.ledgerIndex >= 0 and scout.ledgerIndex <= 371
+    if scout.state == "ACTIVE"
+        array.set(scoutResults,scout.ledgerIndex,CAL_ACTIVE)
+    if eventScoutWin
+        array.set(scoutResults,scout.ledgerIndex,CAL_WIN)
+        array.set(scoutPoints,scout.ledgerIndex,tpSteps)
+    if eventScoutLoss
+        array.set(scoutResults,scout.ledgerIndex,CAL_LOSS)
+        array.set(scoutPoints,scout.ledgerIndex,-slSteps)
+    if eventScoutAmbiguous
+        array.set(scoutResults,scout.ledgerIndex,CAL_AMBIGUOUS)
+    if eventScoutNoEntry
+        array.set(scoutResults,scout.ledgerIndex,CAL_NO_ENTRY)
+    if eventScoutInvalid
+        array.set(scoutResults,scout.ledgerIndex,CAL_INVALIDATED)
+    if eventScoutExpired
+        array.set(scoutResults,scout.ledgerIndex,CAL_EXPIRED)
+// Ledger consumes Official events.
+if official.ledgerIndex >= 0 and official.ledgerIndex <= 371
+    if eventOfficialActive
+        array.set(officialResults,official.ledgerIndex,CAL_ACTIVE)
+    if eventOfficialWin
+        array.set(officialResults,official.ledgerIndex,CAL_WIN)
+        array.set(officialPoints,official.ledgerIndex,tpSteps)
+    if eventOfficialLoss
+        array.set(officialResults,official.ledgerIndex,CAL_LOSS)
+        array.set(officialPoints,official.ledgerIndex,-slSteps)
+    if eventOfficialAmbiguous
+        array.set(officialResults,official.ledgerIndex,CAL_AMBIGUOUS)
+    if eventOfficialNoEntry
+        array.set(officialResults,official.ledgerIndex,CAL_NO_ENTRY)
+    if eventOfficialInvalid
+        array.set(officialResults,official.ledgerIndex,CAL_INVALIDATED)
+    if eventOfficialExpired
+        array.set(officialResults,official.ledgerIndex,CAL_EXPIRED)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 22) LADDER + PLAN MAP
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+hasLadderVisual = hasManipRange and (inDist or (showLadderPreview and inManip and not na(manipYBody)))
+gridLeft = inDist and not na(distLeftBar) ? distLeftBar : not na(manipLeftBar) ? manipLeftBar : bar_index
+gridRight = inDist ? bar_index+gridRightBars : bar_index+previewBars
+gridLabelX = gridRight+1
+displayOfficial = official.id > 0 and not na(official.entry)
+displayScout = not displayOfficial and showScoutPlan and scout.id > 0 and not na(scout.entry)
+displayLive = not displayOfficial and not displayScout and showLiveProjection and inDist and rawRiskMapValid
+displayPlan = displayOfficial or displayScout or displayLive
+displaySide = displayOfficial ? official.side : displayScout ? scout.side : rawSide
+displayEntry = displayOfficial ? official.entry : displayScout ? scout.entry : rawEntry
+displayTarget = displayOfficial ? official.target : displayScout ? scout.target : rawTarget
+displayStop = displayOfficial ? official.stop : displayScout ? scout.stop : rawStop
+displayState = displayOfficial ? official.state : displayScout ? scout.state : "LIVE PROJECTION"
+displaySource = displayOfficial ? "OFFICIAL #"+str.tostring(official.id)+" · SCOUT #"+str.tostring(official.scoutId) : displayScout ? "SCOUT #"+str.tostring(scout.id)+" · FROZEN" : "LIVE PROJECTION · MOVING"
+displayLineStyle = displayOfficial ? "Solid" : displayScout ? "Dashed" : "Dotted"
+displayTolerance = syminfo.mintick*2.0
+f_price_role(float levelPrice) =>
+    bool entryMatch = displayPlan and not na(levelPrice) and math.abs(levelPrice-displayEntry) <= displayTolerance
+    bool targetMatch = displayPlan and not na(levelPrice) and math.abs(levelPrice-displayTarget) <= displayTolerance
+    bool stopMatch = displayPlan and not na(levelPrice) and math.abs(levelPrice-displayStop) <= displayTolerance
+    entryMatch ? 1 : targetMatch ? 2 : stopMatch ? 3 : 0
+f_role_color(int role) => role == 1 ? color.white : role == 2 ? cBull : role == 3 ? cBear : gridIdle
+if showLadder and hasLadderVisual
+    array<float> levelPrices = array.from(levelP3,levelP2,levelP1,levelZ,levelM1,levelM2,levelM3)
+    array<string> levelTexts = array.from("+3","+2","+1","0","-1","-2","-3")
+    for levelIndex = 0 to 6
+        float levelPrice = array.get(levelPrices,levelIndex)
+        int role = f_price_role(levelPrice)
+        color levelColor = f_role_color(role)
+        int levelWidth = role > 0 ? activeLineWidth : inactiveLineWidth
+        line levelLine = array.get(ladderLines,levelIndex)
+        label levelLabel = array.get(ladderLabels,levelIndex)
+        if na(levelLine)
+            levelLine := line.new(gridLeft,levelPrice,gridRight,levelPrice,xloc=xloc.bar_index,color=levelColor,width=levelWidth,style=line.style_dotted)
+            array.set(ladderLines,levelIndex,levelLine)
+        else
+            f_update_line(levelLine,gridLeft,gridRight,levelPrice,levelColor,levelWidth,"Dotted")
+        if showLevelLabels
+            string roleText = role == 1 ? " · ENTRY" : role == 2 ? " · TP" : role == 3 ? " · SL" : ""
+            string fullText = array.get(levelTexts,levelIndex)+roleText+" · "+f_price(levelPrice)
+            if na(levelLabel)
+                levelLabel := label.new(gridLabelX,levelPrice,fullText,xloc=xloc.bar_index,style=label.style_label_left,textcolor=levelColor,color=color.new(cBlack,12),size=chartTextSize)
+                array.set(ladderLabels,levelIndex,levelLabel)
+            else
+                f_update_label(levelLabel,gridLabelX,levelPrice,fullText,levelColor)
+else
+    for levelIndex = 0 to 6
+        line levelLine = array.get(ladderLines,levelIndex)
+        label levelLabel = array.get(ladderLabels,levelIndex)
+        if not na(levelLine)
+            line.delete(levelLine)
+            array.set(ladderLines,levelIndex,na)
+        if not na(levelLabel)
+            label.delete(levelLabel)
+            array.set(ladderLabels,levelIndex,na)
+if showTradeMap and displayPlan
+    if na(planEntryLine)
+        planEntryLine := line.new(gridLeft,displayEntry,gridRight,displayEntry,xloc=xloc.bar_index,color=color.white,width=activeLineWidth,style=displayOfficial ? line.style_solid : displayScout ? line.style_dashed : line.style_dotted)
+        planTargetLine := line.new(gridLeft,displayTarget,gridRight,displayTarget,xloc=xloc.bar_index,color=cBull,width=activeLineWidth,style=displayOfficial ? line.style_solid : displayScout ? line.style_dashed : line.style_dotted)
+        planStopLine := line.new(gridLeft,displayStop,gridRight,displayStop,xloc=xloc.bar_index,color=cBear,width=activeLineWidth,style=displayOfficial ? line.style_solid : displayScout ? line.style_dashed : line.style_dotted)
+    else
+        f_update_line(planEntryLine,gridLeft,gridRight,displayEntry,color.white,activeLineWidth,displayLineStyle)
+        f_update_line(planTargetLine,gridLeft,gridRight,displayTarget,cBull,activeLineWidth,displayLineStyle)
+        f_update_line(planStopLine,gridLeft,gridRight,displayStop,cBear,activeLineWidth,displayLineStyle)
+    if showTradeMapLabels
+        int tagX = gridRight+4
+        string entryTag = displaySource+" · ENTRY · "+f_price(displayEntry)
+        string targetTag = "TP · +"+str.tostring(tpSteps)+" STEPS · "+f_price(displayTarget)
+        string stopTag = "SL · -"+str.tostring(slSteps)+" STEPS · "+f_price(displayStop)
+        if na(planEntryLabel)
+            planEntryLabel := label.new(tagX,displayEntry,entryTag,xloc=xloc.bar_index,style=label.style_label_left,textcolor=color.white,color=color.new(cBlack,8),size=chartTextSize)
+            planTargetLabel := label.new(tagX,displayTarget,targetTag,xloc=xloc.bar_index,style=label.style_label_left,textcolor=cBull,color=color.new(cBlack,8),size=chartTextSize)
+            planStopLabel := label.new(tagX,displayStop,stopTag,xloc=xloc.bar_index,style=label.style_label_left,textcolor=cBear,color=color.new(cBlack,8),size=chartTextSize)
+        else
+            f_update_label(planEntryLabel,tagX,displayEntry,entryTag,color.white)
+            f_update_label(planTargetLabel,tagX,displayTarget,targetTag,cBull)
+            f_update_label(planStopLabel,tagX,displayStop,stopTag,cBear)
+else
+    if not na(planEntryLine)
+        line.delete(planEntryLine)
+        planEntryLine := na
+    if not na(planTargetLine)
+        line.delete(planTargetLine)
+        planTargetLine := na
+    if not na(planStopLine)
+        line.delete(planStopLine)
+        planStopLine := na
+    if not na(planEntryLabel)
+        label.delete(planEntryLabel)
+        planEntryLabel := na
+    if not na(planTargetLabel)
+        label.delete(planTargetLabel)
+        planTargetLabel := na
+    if not na(planStopLabel)
+        label.delete(planStopLabel)
+        planStopLabel := na
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 23) PIP DIMENSIONS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+pipUnit = syminfo.type == "forex" and (syminfo.mintick == 0.00001 or syminfo.mintick == 0.001) ? syminfo.mintick*10.0 : syminfo.mintick
+f_update_dimension(int dimensionIndex,float y1,float y2,int x,string txt,color col) =>
+    int baseLineIndex = dimensionIndex*3
+    line mainLine = array.get(dimensionLines,baseLineIndex)
+    line topTick = array.get(dimensionLines,baseLineIndex+1)
+    line bottomTick = array.get(dimensionLines,baseLineIndex+2)
+    label dimLabel = array.get(dimensionLabels,dimensionIndex)
+    if na(mainLine)
+        mainLine := line.new(x,y1,x,y2,xloc=xloc.bar_index,color=col,width=1)
+        topTick := line.new(x-1,y1,x+1,y1,xloc=xloc.bar_index,color=col,width=1)
+        bottomTick := line.new(x-1,y2,x+1,y2,xloc=xloc.bar_index,color=col,width=1)
+        dimLabel := label.new(x,(y1+y2)/2.0,txt,xloc=xloc.bar_index,style=label.style_label_center,textcolor=col,color=color.new(cBlack,18),size=chartTextSize)
+        array.set(dimensionLines,baseLineIndex,mainLine)
+        array.set(dimensionLines,baseLineIndex+1,topTick)
+        array.set(dimensionLines,baseLineIndex+2,bottomTick)
+        array.set(dimensionLabels,dimensionIndex,dimLabel)
+    else
+        line.set_xy1(mainLine,x,y1)
+        line.set_xy2(mainLine,x,y2)
+        line.set_xy1(topTick,x-1,y1)
+        line.set_xy2(topTick,x+1,y1)
+        line.set_xy1(bottomTick,x-1,y2)
+        line.set_xy2(bottomTick,x+1,y2)
+        label.set_x(dimLabel,x)
+        label.set_y(dimLabel,(y1+y2)/2.0)
+        label.set_text(dimLabel,txt)
+f_clear_dimensions() =>
+    for i = 0 to 17
+        line ln = array.get(dimensionLines,i)
+        if not na(ln)
+            line.delete(ln)
+            array.set(dimensionLines,i,na)
+    for i = 0 to 5
+        label lb = array.get(dimensionLabels,i)
+        if not na(lb)
+            label.delete(lb)
+            array.set(dimensionLabels,i,na)
+if barstate.islast
+    if showPipDimensions and showLadder and hasLadderVisual and pipUnit > 0
+        float onePips = math.abs(levelP1-levelZ)/pipUnit
+        float twoPips = math.abs(levelP2-levelZ)/pipUnit
+        float threePips = math.abs(levelP3-levelZ)/pipUnit
+        f_update_dimension(0,levelZ,levelP1,gridRight+8,str.tostring(onePips,"#.##"),color.white)
+        f_update_dimension(1,levelZ,levelM1,gridRight+8,str.tostring(onePips,"#.##"),color.white)
+        f_update_dimension(2,levelZ,levelP2,gridRight+14,str.tostring(twoPips,"#.##"),cTeal)
+        f_update_dimension(3,levelZ,levelM2,gridRight+14,str.tostring(twoPips,"#.##"),cTeal)
+        f_update_dimension(4,levelZ,levelP3,gridRight+20,str.tostring(threePips,"#.##"),cYellow)
+        f_update_dimension(5,levelZ,levelM3,gridRight+20,str.tostring(threePips,"#.##"),cYellow)
+    else
+        f_clear_dimensions()
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 24) GOD PANEL + CALENDAR
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+var table tMaster = table.new(f_pos(masterWindowPosInput),4,40,border_width=0,frame_width=0,bgcolor=color.new(cBlack,100))
+var table tCalendar = table.new(f_pos(calendarPositionInput),7,12,border_width=1,frame_width=1,frame_color=color.rgb(55,68,91),bgcolor=color.new(cBlack,100))
+f_initialize_tables() =>
+    for r = 0 to 39
+        if r != 3 and r != 8 and r != 14 and r != 20 and r != 26 and r != 32 and r != 37
+            table.merge_cells(tMaster,0,r,3,r)
+    table.merge_cells(tMaster,0,3,2,3)
+    table.merge_cells(tMaster,0,8,2,8)
+    table.merge_cells(tMaster,0,14,2,14)
+    table.merge_cells(tMaster,0,20,2,20)
+    table.merge_cells(tMaster,0,26,2,26)
+    table.merge_cells(tMaster,0,32,2,32)
+    table.merge_cells(tMaster,0,37,2,37)
+    table.merge_cells(tCalendar,0,0,6,0)
+    table.merge_cells(tCalendar,0,1,6,1)
+    table.merge_cells(tCalendar,0,2,6,2)
+    table.merge_cells(tCalendar,0,3,6,3)
+    table.merge_cells(tCalendar,0,11,6,11)
+
+f_result_symbol(int result) => result == CAL_WIN ? "✓" : result == CAL_LOSS ? "×" : result == CAL_AMBIGUOUS ? "?" : result == CAL_NO_ENTRY ? "—" : result == CAL_LATE ? "L" : result == CAL_INVALIDATED ? "I" : result == CAL_EXPIRED ? "E" : result == CAL_ARMED ? "A" : result == CAL_ACTIVE ? "●" : " "
+f_result_bg(int result) => result == CAL_WIN ? cBullDark : result == CAL_LOSS ? cBearDark : result == CAL_AMBIGUOUS ? color.rgb(170,111,30) : result == CAL_LATE ? cIdle : result == CAL_INVALIDATED ? cInvalid : result == CAL_EXPIRED ? color.rgb(69,70,82) : result == CAL_ARMED ? cScout : result == CAL_ACTIVE ? cActive : color.rgb(14,20,31)
+
+f_render_master() =>
+    table.clear(tMaster,0,0,3,39)
+    color sideAccent = officialContextSide == 1 ? cBull : officialContextSide == -1 ? cBear : cWarn
+    color sideDark = officialContextSide == 1 ? cBullDark : officialContextSide == -1 ? cBearDark : cIdle
+    string sessionText = inDist ? "DISTRIBUTION" : inManip ? "MANIPULATION" : inAccum ? "ACCUMULATION" : "OFF SESSION"
+    string actionMain = official.state == "ACTIVE" ? "ACTIVE "+f_side(official.side) : official.state == "TOUCHED" ? "WAIT "+f_side(official.side)+" ACCEPTANCE" : official.state == "ARMED" ? f_side(official.side)+" PLAN ARMED" : official.state == "WIN" ? "OFFICIAL TP HIT · WIN" : official.state == "LOSS" ? "OFFICIAL SL HIT · LOSS" : official.state == "LATE" ? "OFFICIAL MISSED · SCOUT LEFT" : scout.state == "ACTIVE" ? "SCOUT EARLY "+f_side(scout.side) : scout.state == "FROZEN" ? "SCOUT "+f_side(scout.side)+" · WAIT OFFICIAL" : scout.state == "WIN" ? "SCOUT TP HIT · OFFICIAL CHECK" : scout.state == "LOSS" ? "SCOUT SL HIT · FILTER CHECK" : officialContextSide != 0 ? f_side(officialContextSide)+" BIAS" : "WAIT"
+    string actionState = official.id > 0 ? official.state : scout.id > 0 ? scout.state : officialContextSide != 0 ? "BIAS" : "IDLE"
+    string actionReason = official.id > 0 ? official.reason : scout.id > 0 ? scout.reason : contextInvalidated ? "CONTEXT INVALIDATED · NO AUTO-REVERSAL" : lockedDirectionSource
+    string scoutLine = scout.id > 0 ? "SCOUT #"+str.tostring(scout.id)+" · "+scout.state+" · "+f_side(scout.side)+" · "+f_price(scout.entry)+" → "+f_price(scout.target) : "NO FROZEN SCOUT"
+    string officialLine = official.id > 0 ? "OFFICIAL #"+str.tostring(official.id)+" · SCOUT #"+str.tostring(official.scoutId)+" · "+official.state : officialLateRecordedThisDistribution ? "OFFICIAL LATE · SCOUT ENTRY ALREADY TOUCHED" : "WAIT BRECHA / CONSENSUS PROMOTION"
+    f_cell(tMaster,0,0,"♛ ELPIPO GOD · AMD LADDER MASTER v21.0",color.rgb(9,14,24),cYellow,masterBig)
+    f_cell(tMaster,0,1,"SCOUT FREEZE + OFFICIAL CONFIRMATION LAB",color.rgb(9,14,24),cText,masterSmall)
+    f_cell(tMaster,0,2,elpipoProfile+" · "+entryModel+" · TP "+str.tostring(tpSteps)+" / SL "+str.tostring(slSteps),cPanel,cBlue,masterSmall)
+    f_cell(tMaster,0,3,"◈ AMD CONTEXT",cPanel2,cMuted,masterSmall)
+    f_cell(tMaster,3,3,contextInvalidated ? "INVALID" : inDist ? "LOCKED" : "LIVE",contextInvalidated ? cInvalid : cPanel3,cText,masterSmall)
+    f_cell(tMaster,0,4,f_side(officialContextSide)+" · "+lockedDirectionSource,sideDark,cText,masterBig)
+    f_cell(tMaster,0,5,"ACC G "+f_pct(accumGreenPct)+" R "+f_pct(accumRedPct)+" O "+f_pct(accumOverall)+" · MAN G "+f_pct(manipGreenPct)+" R "+f_pct(manipRedPct)+" O "+f_pct(manipOverall),cPanel,sideAccent,masterSmall)
+    f_cell(tMaster,0,6,"COMBO "+f_pct(signedCombo)+" · EDGE "+f_pct(officialPredictorEdge)+" · "+liveContextRead,cPanel,cSoft,masterSmall)
+    f_cell(tMaster,0,7," ",color.new(cBlack,100),cText,size.tiny)
+    f_cell(tMaster,0,8,"● FINAL ACTION",cPanel2,cMuted,masterSmall)
+    f_cell(tMaster,3,8,actionState,f_state_bg(actionState),cText,masterSmall)
+    f_cell(tMaster,0,9,actionMain,f_state_bg(actionState),cText,masterBig)
+    f_cell(tMaster,0,10,actionReason,cPanel,cSoft,masterSmall)
+    f_cell(tMaster,0,11,"BIAS IS NOT ENTRY · SCOUT IS RESEARCH · OFFICIAL IS EXECUTION",cPanel,cYellow,masterSmall)
+    f_cell(tMaster,0,12," ",color.new(cBlack,100),cText,size.tiny)
+    f_cell(tMaster,0,13," ",color.new(cBlack,100),cText,size.tiny)
+    f_cell(tMaster,0,14,"⌁ FROZEN SCOUT",cPanel2,cMuted,masterSmall)
+    f_cell(tMaster,3,14,scout.id > 0 ? scout.state : "NONE",scout.id > 0 ? f_state_bg(scout.state) : cIdle,cText,masterSmall)
+    f_cell(tMaster,0,15,scoutLine,cPanel,scout.id > 0 ? cScout : cMuted,masterBig)
+    f_cell(tMaster,0,16,scout.id > 0 ? "ENTRY "+f_price(scout.entry)+" · TP "+f_price(scout.target)+" · SL "+f_price(scout.stop) : "LIVE PROJECTION HIDDEN BY DEFAULT",cPanel,cSoft,masterSmall)
+    f_cell(tMaster,0,17,scout.id > 0 ? scout.reason : "WAIT CONFIRMED SCOUT FREEZE",cPanel,cBlue,masterSmall)
+    f_cell(tMaster,0,18," ",color.new(cBlack,100),cText,size.tiny)
+    f_cell(tMaster,0,19," ",color.new(cBlack,100),cText,size.tiny)
+    f_cell(tMaster,0,20,"✦ OFFICIAL PLAN",cPanel2,cMuted,masterSmall)
+    f_cell(tMaster,3,20,official.id > 0 ? official.state : "NONE",official.id > 0 ? f_state_bg(official.state) : cIdle,cText,masterSmall)
+    f_cell(tMaster,0,21,officialLine,cPanel,official.id > 0 ? cOfficial : cMuted,masterBig)
+    f_cell(tMaster,0,22,official.id > 0 ? "SAME LEVELS · ENTRY "+f_price(official.entry)+" · TP "+f_price(official.target)+" · SL "+f_price(official.stop) : "OFFICIAL CANNOT RECALCULATE SCOUT LEVELS",cPanel,cSoft,masterSmall)
+    f_cell(tMaster,0,23,official.id > 0 ? official.reason : "WAIT AUTHORIZATION BEFORE SCOUT ENTRY TOUCH",cPanel,cYellow,masterSmall)
+    f_cell(tMaster,0,24," ",color.new(cBlack,100),cText,size.tiny)
+    f_cell(tMaster,0,25," ",color.new(cBlack,100),cText,size.tiny)
+    f_cell(tMaster,0,26,"⌁ BRECHA AUTHORIZATION",cPanel2,cMuted,masterSmall)
+    f_cell(tMaster,3,26,f_pct(brechaAuthorityPct),brechaQualified ? cBullDark : cPanel3,cText,masterSmall)
+    f_cell(tMaster,0,27,brechaStatus+" · "+str.tostring(brechaPassedCount)+"/"+str.tostring(brechaEnabledCount)+" · CATS "+str.tostring(brechaCategoriesPassed)+"/"+str.tostring(brechaCategoriesActive),cPanel,brechaQualified ? cBull : cSoft,masterSmall)
+    f_cell(tMaster,0,28,brechaCategoryText+" · "+brechaMissingText,cPanel,cBlue,masterSmall)
+    f_cell(tMaster,0,29," ",color.new(cBlack,100),cText,size.tiny)
+    f_cell(tMaster,0,30," ",color.new(cBlack,100),cText,size.tiny)
+    f_cell(tMaster,0,31," ",color.new(cBlack,100),cText,size.tiny)
+    f_cell(tMaster,0,32,"✦ CONSENSUS CONFIRM / VETO",cPanel2,cMuted,masterSmall)
+    f_cell(tMaster,3,32,f_pct(consensusAuthorityPct),consensusQualified ? color.rgb(118,88,20) : cPanel3,cText,masterSmall)
+    f_cell(tMaster,0,33,consensusStatus+" · "+str.tostring(consensusPassedCount)+"/"+str.tostring(consensusEnabledCount)+" · CATS "+str.tostring(consensusCategoriesPassed)+"/"+str.tostring(consensusCategoriesActive),cPanel,consensusQualified ? cYellow : cSoft,masterSmall)
+    f_cell(tMaster,0,34,consensusCategoryText+" · "+consensusMissingText,cPanel,cYellow,masterSmall)
+    f_cell(tMaster,0,35,"AUTHORITY = RULE MATCH · NOT WIN PROBABILITY",cPanel,cWarn,masterSmall)
+    f_cell(tMaster,0,36," ",color.new(cBlack,100),cText,size.tiny)
+    f_cell(tMaster,0,37,"◆ MARKET",cPanel2,cMuted,masterSmall)
+    f_cell(tMaster,3,37,sessionText,cPanel3,sideAccent,masterSmall)
+    f_cell(tMaster,0,38,"TIME "+str.format_time(time,"hh:mm a",tz)+" · TF "+timeframe.period+" · HTF "+consensusHTF,cPanel,cSoft,masterSmall)
+    f_cell(tMaster,0,39,"ENTRY IS THE DOOR · FREEZE MAKES THE TEST AUDITABLE",color.rgb(9,14,24),cYellow,masterSmall)
+
+f_render_calendar() =>
+    table.clear(tCalendar,0,0,6,11)
+    int monthOffset = (calendarDesiredMonth-1)*31
+    int sW = 0
+    int sL = 0
+    int oW = 0
+    int oL = 0
+    float sNet = 0.0
+    float oNet = 0.0
+    int missedWinners = 0
+    int savedLosses = 0
+    int officialLate = 0
+    int ySW = 0
+    int ySL = 0
+    int yOW = 0
+    int yOL = 0
+    float ySNet = 0.0
+    float yONet = 0.0
+    for d = 0 to 30
+        int idx = monthOffset+d
+        int sr = array.get(scoutResults,idx)
+        int orr = array.get(officialResults,idx)
+        sW += sr == CAL_WIN ? 1 : 0
+        sL += sr == CAL_LOSS ? 1 : 0
+        oW += orr == CAL_WIN ? 1 : 0
+        oL += orr == CAL_LOSS ? 1 : 0
+        sNet += array.get(scoutPoints,idx)
+        oNet += array.get(officialPoints,idx)
+        missedWinners += sr == CAL_WIN and orr != CAL_WIN ? 1 : 0
+        savedLosses += sr == CAL_LOSS and orr != CAL_LOSS ? 1 : 0
+        officialLate += orr == CAL_LATE ? 1 : 0
+    for idx = 0 to 371
+        int sr = array.get(scoutResults,idx)
+        int orr = array.get(officialResults,idx)
+        ySW += sr == CAL_WIN ? 1 : 0
+        ySL += sr == CAL_LOSS ? 1 : 0
+        yOW += orr == CAL_WIN ? 1 : 0
+        yOL += orr == CAL_LOSS ? 1 : 0
+        ySNet += array.get(scoutPoints,idx)
+        yONet += array.get(officialPoints,idx)
+    string title = f_month_name(calendarDesiredMonth)+" "+str.tostring(calendarTrackedYear)+" · SCOUT vs OFFICIAL"
+    string monthText = "MONTH · SCOUT "+str.tostring(sW)+"W/"+str.tostring(sL)+"L "+(sNet > 0 ? "+" : "")+str.tostring(sNet,"#")+" · OFFICIAL "+str.tostring(oW)+"W/"+str.tostring(oL)+"L "+(oNet > 0 ? "+" : "")+str.tostring(oNet,"#")
+    string yearText = "YEAR · SCOUT "+str.tostring(ySW)+"W/"+str.tostring(ySL)+"L "+(ySNet > 0 ? "+" : "")+str.tostring(ySNet,"#")+" · OFFICIAL "+str.tostring(yOW)+"W/"+str.tostring(yOL)+"L "+(yONet > 0 ? "+" : "")+str.tostring(yONet,"#")
+    string labText = "MISSED WINNERS "+str.tostring(missedWinners)+" · SAVED LOSSES "+str.tostring(savedLosses)+" · OFFICIAL LATE "+str.tostring(officialLate)
+    f_cell(tCalendar,0,0,title,color.rgb(9,14,24),cYellow,calendarTextSize)
+    f_cell(tCalendar,0,1,monthText,oNet > 0 ? cBullDark : oNet < 0 ? cBearDark : cPanel3,cText,calendarBig)
+    f_cell(tCalendar,0,2,calendarShowYearSummary ? yearText : "YEAR SUMMARY OFF",cPanel3,cText,calendarBig)
+    f_cell(tCalendar,0,3,labText,cPanel,cMuted,calendarSmall)
+    array<string> dayNames = array.from("MON","TUE","WED","THU","FRI","SAT","SUN")
+    for c = 0 to 6
+        f_cell(tCalendar,c,4,array.get(dayNames,c),cPanel2,c >= 5 ? cMuted : cSoft,calendarSmall)
+    for r = 5 to 10
+        for c = 0 to 6
+            f_cell(tCalendar,c,r," ",color.rgb(14,20,31),cMuted,calendarSmall)
+    int firstTimestamp = timestamp(tz,calendarTrackedYear,calendarDesiredMonth,1,0,0)
+    int firstDOW = dayofweek(firstTimestamp)
+    int mondayOffset = firstDOW == dayofweek.sunday ? 6 : firstDOW-dayofweek.monday
+    int daysInMonth = f_days_in_month(calendarTrackedYear,calendarDesiredMonth)
+    for calendarDay = 1 to 31
+        if calendarDay <= daysInMonth
+            int slot = mondayOffset+calendarDay-1
+            int col = slot%7
+            int row = 5+int(math.floor(slot/7))
+            int idx = monthOffset+calendarDay-1
+            bool sd = array.get(scoutDays,idx)
+            bool od = array.get(officialDays,idx)
+            int sr = array.get(scoutResults,idx)
+            int orr = array.get(officialResults,idx)
+            int direction = sd ? array.get(scoutDirections,idx) : array.get(officialDirections,idx)
+            int mins = sd ? array.get(scoutTimes,idx) : array.get(officialTimes,idx)
+            string cell = str.tostring(calendarDay)
+            if sd or od
+                cell += "\n"+f_side_short(direction)+" · S"+f_result_symbol(sr)+" O"+f_result_symbol(orr)
+                if calendarShowSignalTime and mins >= 0
+                    cell += "\n"+str.tostring(int(math.floor(mins/60)),"00")+":"+str.tostring(mins%60,"00")
+            int visualResult = od and orr != CAL_NONE ? orr : sr
+            f_cell(tCalendar,col,row,cell,sd or od ? f_result_bg(visualResult) : color.rgb(14,20,31),sd or od ? cText : cSoft,calendarSmall)
+    f_cell(tCalendar,0,11,"S = SCOUT · O = OFFICIAL · ✓ TP · × SL · L LATE · I INVALID · E EXPIRED",color.rgb(9,14,24),cMuted,calendarSmall)
+
+if barstate.isfirst
+    f_initialize_tables()
+if barstate.islast
+    if showMasterWindow
+        f_render_master()
+    else
+        table.clear(tMaster,0,0,3,39)
+    if showCalendar
+        f_render_calendar()
+    else
+        table.clear(tCalendar,0,0,6,11)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 25) MARKERS + ALERTS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+plotshape(showScoutMarkers and eventScoutFreeze,title="Scout Frozen",style=shape.labelup,location=location.belowbar,color=cScout,size=size.tiny,text="SCOUT",textcolor=cText)
+plotshape(showScoutMarkers and eventScoutTouch,title="Scout Entry Touched",style=shape.circle,location=location.belowbar,color=cWarn,size=size.tiny,text="S",textcolor=cBlack)
+plotshape(showScoutMarkers and eventScoutWin,title="Scout TP",style=shape.labeldown,location=location.abovebar,color=cBull,size=size.tiny,text="S TP",textcolor=cText)
+plotshape(showScoutMarkers and eventScoutLoss,title="Scout SL",style=shape.labeldown,location=location.abovebar,color=cBear,size=size.tiny,text="S SL",textcolor=cText)
+plotshape(eventOfficialArm,title="Official Plan Armed",style=shape.labelup,location=location.belowbar,color=cOfficial,size=size.tiny,text="ARM",textcolor=cBlack)
+plotshape(eventOfficialTouch,title="Official Entry Touched",style=shape.circle,location=location.belowbar,color=cWarn,size=size.tiny,text="T",textcolor=cBlack)
+plotshape(eventOfficialActive,title="Official Entry Accepted",style=shape.labelup,location=location.belowbar,color=cActive,size=size.tiny,text="ACTIVE",textcolor=cText)
+plotshape(eventOfficialWin,title="Official TP",style=shape.labeldown,location=location.abovebar,color=cBull,size=size.tiny,text="O TP",textcolor=cText)
+plotshape(eventOfficialLoss,title="Official SL",style=shape.labeldown,location=location.abovebar,color=cBear,size=size.tiny,text="O SL",textcolor=cText)
+plotshape(eventOfficialLate,title="Official Late",style=shape.labeldown,location=location.abovebar,color=cIdle,size=size.tiny,text="LATE",textcolor=cText)
+alertcondition(eventScoutFreeze,"ELPIPO v21 SCOUT FROZEN","A confirmed Scout froze Entry, TP and SL. Dashed levels will not move.")
+alertcondition(eventScoutTouch,"ELPIPO v21 SCOUT ENTRY TOUCHED","The frozen Scout Entry was touched before or alongside official confirmation.")
+alertcondition(eventScoutWin,"ELPIPO v21 SCOUT TP HIT","The frozen Scout research plan hit TP.")
+alertcondition(eventScoutLoss,"ELPIPO v21 SCOUT SL HIT","The frozen Scout research plan hit SL.")
+alertcondition(eventOfficialArm,"ELPIPO v21 OFFICIAL PLAN ARMED","The same frozen Scout levels were promoted to an Official Plan.")
+alertcondition(eventOfficialTouch,"ELPIPO v21 OFFICIAL ENTRY TOUCHED","Official Entry touched. Wait for acceptance when required.")
+alertcondition(eventOfficialActive,"ELPIPO v21 OFFICIAL ENTRY ACCEPTED","Official Entry received acceptance and is active.")
+alertcondition(eventOfficialWin,"ELPIPO v21 OFFICIAL TP HIT","The Official Plan hit TP.")
+alertcondition(eventOfficialLoss,"ELPIPO v21 OFFICIAL SL HIT","The Official Plan hit SL.")
+alertcondition(eventOfficialLate,"ELPIPO v21 OFFICIAL MISSED SCOUT","Scout Entry touched before Official authorization. The day is recorded as Official Late.")
+alertcondition(contextInvalidated,"ELPIPO v21 CONTEXT INVALIDATED","The locked AMD context was invalidated. No automatic reversal was created.")
+alertcondition(distStart,"ELPIPO v21 DISTRIBUTION STARTED","Distribution started. AMD context is locked and Scout evaluation is active.")
